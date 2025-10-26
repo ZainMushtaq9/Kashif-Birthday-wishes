@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Happy Friday — Muhammad Kashif</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg-1: linear-gradient(135deg,#0f172a 0%, #071033 50%, #0c2545 100%);
+      --glass: rgba(255,255,255,0.06);
+      --accent: #7C3AED;
+      --accent-2: #06b6d4;
+      --text: #e6eef8;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      background:var(--bg-1); color:var(--text); -webkit-font-smoothing:antialiased;
+      display:flex;align-items:center;justify-content:center;padding:40px;
+    }
+
+    .card{
+      width:min(980px,96vw); max-width:1100px; border-radius:18px; padding:32px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      box-shadow: 0 10px 40px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+      backdrop-filter: blur(8px); position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.04);
+      display:grid; grid-template-columns: 1fr 420px; gap:28px; align-items:center;
+    }
+
+    /* left */
+    .left{padding:6px 12px}
+    h1{font-size:clamp(28px,4.4vw,44px); margin:0 0 8px; line-height:1.02; letter-spacing:-0.02em}
+    .sub{opacity:0.85; margin:0 0 18px}
+    .greeting{
+      display:inline-flex; gap:10px; align-items:center; padding:10px 14px; border-radius:999px;
+      background:linear-gradient(90deg, rgba(124,58,237,0.12), rgba(6,182,212,0.08));
+      border:1px solid rgba(255,255,255,0.03); font-weight:600;
+      transform-origin:center; animation: float 3.8s ease-in-out infinite;
+    }
+    .greeting .emoji{font-size:26px}
+
+    .meta{display:flex; gap:12px; margin-top:18px; flex-wrap:wrap}
+    .meta button{
+      background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); padding:10px 14px; border-radius:10px;
+      cursor:pointer; font-weight:600; backdrop-filter: blur(6px); transition: all .28s cubic-bezier(.2,.9,.28,1);
+    }
+    .meta button:hover{transform:translateY(-6px); box-shadow: 0 8px 30px rgba(2,6,23,0.5)}
+    .meta .primary{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff; border:0}
+
+    /* right card */
+    .right{padding:20px; border-radius:14px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03)}
+    .profile{display:flex; gap:12px; align-items:center}
+    .avatar{width:76px;height:76px;border-radius:16px; display:grid;place-items:center; font-size:28px; font-weight:800; color:#051022; background:linear-gradient(135deg,var(--accent), #4f46e5)}
+    .who{font-weight:700; font-size:16px}
+    .small{font-size:13px; opacity:0.9}
+
+    /* animated stripe */
+    .strip{
+      position:absolute; inset:0; pointer-events:none; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+      transform:translateX(-110%); animation: race 12s linear infinite;
+    }
+
+    /* confetti canvas */
+    #confetti{position:absolute; inset:0; pointer-events:none}
+
+    footer.note{position:absolute; left:22px; bottom:18px; font-size:12px; opacity:0.75}
+
+    @keyframes float{
+      0%{transform:translateY(0)}
+      50%{transform:translateY(-8px) rotate(-1.2deg)}
+      100%{transform:translateY(0)}
+    }
+    @keyframes race{0%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+
+    /* responsive */
+    @media (max-width:880px){
+      .card{grid-template-columns:1fr;}
+      .right{order:-1}
+    }
+  </style>
+</head>
+<body>
+  <div class="card" role="region" aria-label="Happy Friday card">
+    <canvas id="confetti"></canvas>
+    <div class="strip" aria-hidden="true"></div>
+
+    <div class="left">
+      <div class="greeting" aria-hidden="false">
+        <span class="emoji">🎉</span>
+        <span>Best Friday Wishes — from your dev friend</span>
+      </div>
+
+      <h1>Happy Friday, <span style="background:linear-gradient(90deg,#fff, #dfefff); -webkit-background-clip:text; color:transparent;">Muhammad Kashif</span> ✨</h1>
+      <p class="sub">I — your best friend & developer — made this little celebratory page just to wish you the very best Friday. Keep building, keep smiling, and ship the code ❤️</p>
+
+      <div class="meta">
+        <button id="wishBtn" class="primary">Send me a wish</button>
+        <button id="partyBtn">Start Confetti</button>
+        <button id="copyBtn">Copy short message</button>
+      </div>
+
+      <div style="margin-top:18px; font-size:14px; line-height:1.5; opacity:0.95">
+        <strong>Short note:</strong> "Happy Friday Muhammad Kashif — code, coffee, and great vibes. — Your Friend & Dev"
+      </div>
+
+      <footer class="note">Made with ❤️ — open this file locally or share the URL.</footer>
+    </div>
+
+    <aside class="right" aria-label="Profile card">
+      <div class="profile">
+        <div class="avatar">MK</div>
+        <div>
+          <div class="who">Muhammad Kashif</div>
+          <div class="small">Developer • Best Friend • Friday Enthusiast</div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px; font-size:14px;">
+        <p style="margin:0 0 10px">Quick actions & friendly dev notes:</p>
+        <ul style="margin:0 0 0 18px; padding:0;">
+          <li>Press "Send me a wish" for an animated message.</li>
+          <li>Start confetti for a little party.</li>
+          <li>Copy the short message to share on socials.</li>
+        </ul>
+      </div>
+
+      <div style="margin-top:18px; display:flex; gap:8px; align-items:center;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden class="icon"> <path d="M12 2v6M12 16v6M4 8h6M14 8h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="font-size:13px; opacity:0.92">Made by a friend who writes clean code.</div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // small utility for confetti (lightweight)
+    (() => {
+      const canvas = document.getElementById('confetti');
+      const ctx = canvas.getContext('2d');
+      let W, H, particles = [], anim;
+
+      function resize(){
+        W = canvas.width = canvas.clientWidth || window.innerWidth;
+        H = canvas.height = canvas.clientHeight || window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function rand(min,max){return Math.random()*(max-min)+min}
+      function makeParticles(count){
+        for(let i=0;i<count;i++){
+          particles.push({
+            x: rand(0,W), y: rand(-H,0), r:rand(6,12),
+            dx: rand(-1.5,1.5), dy: rand(1,4),
+            spin: rand(0,360), dSpin: rand(-6,6),
+            color: `hsl(${~~rand(0,360)},85%,60%)`
+          })
+        }
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,W,H);
+        for(let p of particles){
+          ctx.save();
+          ctx.translate(p.x,p.y);
+          ctx.rotate(p.spin * Math.PI/180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r*0.6);
+          ctx.restore();
+          p.x += p.dx; p.y += p.dy; p.spin += p.dSpin*0.5;
+        }
+        particles = particles.filter(p => p.y < H + 40);
+      }
+
+      function loop(){ draw(); anim = requestAnimationFrame(loop) }
+
+      function startConfetti(){
+        makeParticles(140); if(!anim) loop();
+        setTimeout(()=>{ cancelAnimationFrame(anim); anim = null; }, 6500)
+      }
+
+      // button interactions
+      document.getElementById('partyBtn').addEventListener('click', ()=>{
+        startConfetti();
+      });
+
+      document.getElementById('wishBtn').addEventListener('click', ()=>{
+        // friendly typed-ish animation
+        const h = document.querySelector('h1');
+        const original = h.innerHTML;
+        const text = `Happy Friday, Muhammad Kashif — code, coffee, and endless wins! \u2728`;
+        let i=0; h.style.opacity=1; h.innerHTML='';
+        const iv = setInterval(()=>{
+          h.innerHTML += text[i++];
+          if(i>=text.length){ clearInterval(iv); setTimeout(()=>{ h.innerHTML = original; },4000)}
+        },30)
+        startConfetti();
+      });
+
+      document.getElementById('copyBtn').addEventListener('click', async ()=>{
+        const msg = 'Happy Friday Muhammad Kashif — code, coffee, and great vibes. — Your Friend & Dev';
+        try{ await navigator.clipboard.writeText(msg); const b=document.getElementById('copyBtn'); b.textContent='Copied ✓'; setTimeout(()=>b.textContent='Copy short message',2000)}catch(e){ alert('Copy failed — select & copy manually.'); }
+      });
+
+      // little entrance animation on load
+      document.addEventListener('DOMContentLoaded', ()=>{
+        document.querySelector('.card').style.transform='translateY(8px)';
+        setTimeout(()=> document.querySelector('.card').style.transform='translateY(0)', 120);
+      });
+    })();
+  </script>
+</body>
+</html>
