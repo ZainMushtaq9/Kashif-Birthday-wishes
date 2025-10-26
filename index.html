@@ -3,173 +3,219 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>🌟 Happy Friday Surprise — Muhammad Kashif 🌟</title>
+  <title>🎉 Happy Birthday — Muhammad Kashif 🎂</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg-gradient: radial-gradient(circle at top left, #0a0f2c, #1b2459 40%, #2b3678 80%, #000 100%);
-      --accent: #8b5cf6;
-      --accent2: #06b6d4;
-      --text: #f1f5f9;
+    :root{
+      --bg1: #0b0820;
+      --bg2: #1b1033;
+      --purple: #7c3aed;
+      --gold: #f59e0b;
+      --glass: rgba(255,255,255,0.04);
+      --text: #f8fafc;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:'Poppins',system-ui,Segoe UI,Roboto,Arial}
+    body{
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,0.12), transparent),
+                  radial-gradient(800px 500px at 90% 90%, rgba(245,158,11,0.08), transparent),
+                  linear-gradient(180deg,var(--bg1),var(--bg2));
+      display:flex;align-items:center;justify-content:center;padding:28px;overflow:hidden;color:var(--text);
     }
 
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Poppins', sans-serif; overflow: hidden; }
-
-    body {
-      background: var(--bg-gradient);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text);
+    /* Container */
+    .stage{
+      width:min(980px,96vw); max-width:1100px; border-radius:20px; padding:26px; position:relative;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.06); box-shadow: 0 18px 80px rgba(2,6,23,0.7);
+      overflow:hidden;
     }
 
-    .card {
-      width: min(92vw, 820px);
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 22px;
-      backdrop-filter: blur(16px);
-      padding: 36px 24px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 12px 60px rgba(0,0,0,0.5);
-      animation: floatCard 4s ease-in-out infinite;
+    /* glowing frame */
+    .glow-frame{
+      position:absolute; inset:-2px; border-radius:22px; pointer-events:none;
+      background: conic-gradient(from 200deg at 50% 50%, rgba(124,58,237,0.18), rgba(245,158,11,0.18), rgba(6,182,212,0.06), rgba(124,58,237,0.18));
+      filter: blur(22px); opacity:0.9; transform: scale(1.02);
+      animation: spinGlow 10s linear infinite;
     }
 
-    h1 {
-      font-size: clamp(28px, 6vw, 50px);
-      margin-bottom: 12px;
-      background: linear-gradient(90deg, #fff, #b8e2ff, #fff);
-      -webkit-background-clip: text;
-      color: transparent;
-      animation: shineText 6s linear infinite;
-    }
+    @keyframes spinGlow{ 0%{transform:scale(1.02) rotate(0deg)} 100%{transform:scale(1.02) rotate(360deg)} }
 
-    .wish-line {
-      font-size: clamp(18px, 4vw, 22px);
-      margin-bottom: 16px;
-      opacity: 0;
-      animation: slideIn 2s ease forwards 1.5s;
-    }
+    .content{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:stretch}
 
-    .prayer {
-      margin-top: 16px;
-      font-size: clamp(15px, 4vw, 18px);
-      line-height: 1.6;
-      opacity: 0;
-      animation: fadeUp 3s ease 2s forwards;
-    }
+    /* Left - main */
+    .main{padding:18px 12px}
+    .badge{display:inline-block;padding:8px 14px;border-radius:999px;background:linear-gradient(90deg,var(--purple),var(--gold));font-weight:700;color:#071022;margin-bottom:12px}
 
-    .from {
-      margin-top: 40px;
-      font-weight: 600;
-      font-size: 18px;
-      color: #b9f3ff;
-      animation: glowIn 4s ease-in-out infinite alternate;
-    }
+    /* Animated headline */
+    .headline{font-size:clamp(28px,6vw,44px);line-height:1.02;margin:6px 0 12px;display:flex;flex-direction:column;gap:8px}
+    .happy{font-weight:800; letter-spacing:-0.02em; display:inline-block; transform-origin:center;}
+    .name{background:linear-gradient(90deg,#fff, #fffbeb); -webkit-background-clip:text; color:transparent; font-weight:900}
 
-    .galaxy, .comet, .stars {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      overflow: hidden;
+    /* type + glitch + fly */
+    .typed{font-size:18px; min-height:36px; margin-bottom:12px}
+    .glitch{
+      position:relative; display:inline-block; font-weight:900; font-size:20px;
+      color:var(--purple); mix-blend-mode:screen;
     }
-
-    .comet div {
-      position: absolute;
-      width: 160px; height: 2px;
-      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.9));
-      border-radius: 999px;
-      animation: cometFly 8s linear infinite;
+    .glitch::before, .glitch::after{
+      content:attr(data-text); position:absolute; left:0; top:0; width:100%;
+      clip-path: var(--clip, none);
     }
+    .glitch::before{color:var(--gold); transform:translate(6px,-4px) skewX(-8deg); opacity:0.85}
+    .glitch::after{color:#fff; transform:translate(-6px,4px) skewX(6deg); opacity:0.6}
 
-    .stars span {
-      position: absolute;
-      display: block;
-      width: 3px; height: 3px;
-      background: #fff;
-      border-radius: 50%;
-      opacity: 0.8;
-      animation: starBlink 2s infinite alternate;
+    /* surprise box */
+    .surprise{
+      margin-top:12px; border-radius:14px; padding:16px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.04); box-shadow: 0 6px 30px rgba(2,6,23,0.6);
+      transform-origin:center; transition: transform .6s cubic-bezier(.2,.9,.28,1);
     }
+    .surprise.pop{ transform: scale(1.03) rotate(-1deg); }
 
-    .burst span {
-      position: absolute;
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: hsl(calc(360 * var(--i) / 10), 90%, 60%);
-      animation: burstAnim 3s ease-in-out infinite;
-    }
+    .prayers{font-size:16px; line-height:1.6; color:rgba(248,250,252,0.95)}
 
-    @keyframes floatCard { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-    @keyframes shineText { from { background-position: -200px; } to { background-position: 200px; } }
-    @keyframes slideIn { 0% { transform: translateY(40px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: translateY(0);} }
-    @keyframes glowIn { 0% { text-shadow: 0 0 8px var(--accent);} 100% { text-shadow: 0 0 20px var(--accent2);} }
-    @keyframes cometFly { 0% { transform: translateX(-20%) translateY(0) rotate(0deg); opacity: 0;} 50% { opacity: 1;} 100% { transform: translateX(120%) translateY(-40px) rotate(2deg); opacity: 0;} }
-    @keyframes starBlink { 0% { opacity: 0.3;} 100% { opacity: 1;} }
-    @keyframes burstAnim { 0% { transform: scale(0) translateY(0);} 50% { transform: scale(1.2) translateY(-50px);} 100% { transform: scale(0) translateY(0);} }
+    /* Right - balloons and cake */
+    .party{display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;padding:12px}
+    .balloon-wrap{position:relative;width:100%;height:320px}
+    .balloon{position:absolute; bottom:-40px; width:70px;height:92px;border-radius:40px 40px 46px 46px; display:grid; place-items:center; font-weight:800; color:#081022}
+    .string{width:2px;height:80px;background:rgba(0,0,0,0.15); position:absolute; top:84px; left:50%; transform:translateX(-50%)}
 
-    @media (max-width: 600px) {
-      .card { padding: 20px 14px; }
-      h1 { font-size: 28px; }
-      .prayer { font-size: 16px; }
-    }
+    .balloon.purple{background:linear-gradient(180deg,var(--purple), #5b21b6); left:8%; animation: rise 9s ease-in infinite;}
+    .balloon.gold{background:linear-gradient(180deg,var(--gold), #f97316); left:28%; animation: rise 11s ease-in infinite;}
+    .balloon.cyan{background:linear-gradient(180deg,#06b6d4, #0891b2); left:56%; animation: rise 10s cubic-bezier(.2,.8,.2,1) infinite;}
+    .balloon.pink{background:linear-gradient(180deg,#fb7185, #f472b6); left:78%; animation: rise 12s ease-in-out infinite;}
+
+    @keyframes rise{ 0%{transform: translateY(0) rotate(-8deg); opacity:0} 10%{opacity:1} 50%{transform: translateY(-380px) rotate(6deg)} 100%{transform: translateY(-760px) rotate(-6deg); opacity:0} }
+
+    /* confetti */
+    .confetti{position:absolute; inset:0; pointer-events:none}
+    .confetti i{position:absolute; width:10px;height:16px; background:var(--gold); opacity:0.95; transform:rotate(10deg); animation: conf 6s linear infinite}
+    @keyframes conf{ 0%{transform:translateY(-20px) rotate(0) } 100%{transform:translateY(100vh) rotate(800deg)} }
+
+    /* cake */
+    .cake{width:120px;height:120px;border-radius:18px;background:linear-gradient(180deg,#fff,#ffe7c2);position:relative;box-shadow:0 8px 30px rgba(0,0,0,0.4);display:grid;place-items:center}
+    .candle{width:8px;height:30px;background:linear-gradient(180deg,#fde68a,#f97316);position:absolute;top:-14px;border-radius:3px}
+    .flame{width:14px;height:14px;border-radius:50%;position:absolute;top:-22px; background: radial-gradient(circle at 35% 30%, #fff4, #fff0 40%), linear-gradient(180deg,#fff176,#ff8a00); box-shadow:0 6px 18px rgba(255,140,0,0.6); animation: flicker 900ms infinite}
+    @keyframes flicker{ 0%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.03)}100%{transform:translateY(0) scale(1)} }
+
+    /* responsive */
+    @media (max-width:920px){ .content{grid-template-columns:1fr} .balloon-wrap{height:260px} .party{padding-top:6px} }
+    @media (max-width:480px){ .balloon{width:56px;height:74px} .cake{width:96px;height:96px; } }
+
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="galaxy">
-      <div class="comet">
-        <div style="top:20%;animation-delay:0s"></div>
-        <div style="top:60%;animation-delay:2s"></div>
-        <div style="top:80%;animation-delay:4s"></div>
+  <section class="stage" id="stage">
+    <div class="glow-frame" aria-hidden="true"></div>
+
+    <div class="content">
+      <div class="main">
+        <div class="badge">Special Day</div>
+        <div class="headline">
+          <span class="happy">HAPPY BIRTHDAY</span>
+          <span class="name">Muhammad Kashif</span>
+        </div>
+
+        <div class="typed" id="typed"></div>
+
+        <div class="surprise" id="surpriseBox">
+          <div class="prayers" id="prayers">
+            <p>On this blessed day, I pray that Allah grants you abundant mercy, health, and sustained success in every step you take. May your heart be filled with peace, your efforts rewarded, and your future lit by endless opportunities. Remember that every code you ship and every dream you chase brings you closer to the purpose He has written for you.</p>
+            <p>Wishing you joy that overflows, strength that never fades, and guidance that always leads you to what is best. Happy Birthday — may this year be your brightest yet.</p>
+          </div>
+        </div>
+
       </div>
-      <div class="stars" id="stars"></div>
+
+      <aside class="party">
+        <div class="balloon-wrap" aria-hidden="true">
+          <div class="balloon purple">MK<div class="string"></div></div>
+          <div class="balloon gold">🎂<div class="string"></div></div>
+          <div class="balloon cyan">✨<div class="string"></div></div>
+          <div class="balloon pink">🤍<div class="string"></div></div>
+        </div>
+
+        <div class="cake">
+          <div class="candle"></div>
+          <div class="flame" aria-hidden="true"></div>
+        </div>
+      </aside>
     </div>
 
-    <h1>🌌 Happy Friday, Muhammad Kashif 🌌</h1>
-    <div class="wish-line">A day filled with cosmic joy, divine peace, and miracles waiting to unfold ✨</div>
-    <div class="prayer">May your journey be brighter than a million stars. Every heartbeat echo with purpose and every step bring you closer to your dreams. The universe is aligning for your success — believe it. 🌠<br><br>
-    May Allah bless your every effort, guide your destiny with light, and make this Friday a gateway to boundless opportunities. 🌙💫</div>
-    <div class="from">— Always wishing you greatness, Muhammad Zain Mushtaq 🚀</div>
-  </div>
-
-  <div class="burst" id="burst"></div>
+    <div class="confetti" id="confetti"></div>
+  </section>
 
   <script>
-    // Random star field
-    const stars = document.getElementById('stars');
-    for(let i=0;i<100;i++){
-      const s=document.createElement('span');
-      s.style.left=Math.random()*100+'%';
-      s.style.top=Math.random()*100+'%';
-      s.style.animationDelay=(Math.random()*2)+'s';
-      stars.appendChild(s);
+    // Typing + Glitch reveal sequence
+    const typedEl = document.getElementById('typed');
+    const surprise = document.getElementById('surpriseBox');
+    const confetti = document.getElementById('confetti');
+
+    const lines = [
+      'May your code compile with ease, and your days be filled with joy.',
+      'May every challenge turn into a stepping stone, and every night end with gratitude.',
+      'Prayers for health, blessings, and unshakable hope for your future.'
+    ];
+
+    let lineIdx=0, charIdx=0;
+
+    function typeNext(){
+      if(lineIdx>=lines.length) return runSurprise();
+      const line = lines[lineIdx];
+      if(charIdx < line.length){
+        typedEl.innerHTML = `<span class="glitch" data-text="${escapeHtml(line.substring(0,charIdx+1))}">${escapeHtml(line.substring(0,charIdx+1))}</span>`;
+        charIdx++;
+        setTimeout(typeNext, 34 + Math.random()*40);
+      }else{
+        // small pause then next
+        lineIdx++; charIdx=0;
+        setTimeout(()=>{ typedEl.innerHTML += '<br/>'; typeNext(); }, 700);
+      }
     }
 
-    // Burst animation with colored circles
-    const burst=document.getElementById('burst');
-    for(let i=0;i<10;i++){
-      const sp=document.createElement('span');
-      sp.style.setProperty('--i', i);
-      sp.style.left = '50%';
-      sp.style.top = '50%';
-      sp.style.animationDelay = (i*0.3)+'s';
-      burst.appendChild(sp);
+    function runSurprise(){
+      // pop the box
+      surprise.classList.add('pop');
+      // spawn confetti
+      for(let i=0;i<80;i++){
+        const el = document.createElement('i');
+        el.style.left = Math.random()*100 + '%';
+        el.style.background = pick(['#fde68a','#f97316','#7c3aed','#06b6d4','#fb7185']);
+        el.style.top = (Math.random()*40) + '%';
+        el.style.transform = `rotate(${Math.random()*360}deg)`;
+        el.style.animationDelay = (Math.random()*0.6) + 's';
+        confetti.appendChild(el);
+        // clean up
+        setTimeout(()=> el.remove(), 7000);
+      }
+      // balloon extra bounce
+      document.querySelectorAll('.balloon').forEach((b,i)=>{
+        b.animate([
+          { transform: 'translateY(0) rotate(0deg)' },
+          { transform: 'translateY(-18px) rotate(-6deg)' },
+          { transform: 'translateY(0) rotate(4deg)' }
+        ], { duration: 800, delay: i*80, easing: 'cubic-bezier(.2,.9,.28,1)' });
+      });
+
+      // subtle camera shake
+      const stage = document.getElementById('stage');
+      stage.animate([
+        { transform: 'translateY(0)' }, { transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }
+      ], { duration: 650, iterations: 2, easing: 'cubic-bezier(.2,.9,.28,1)' });
     }
 
-    // Add shock/surprise scale-up animation when loaded
-    document.addEventListener('DOMContentLoaded', ()=>{
-      const card=document.querySelector('.card');
-      card.style.transform='scale(0) rotate(-10deg)';
-      setTimeout(()=>{
-        card.style.transition='transform 1.2s cubic-bezier(.22,1.2,.36,1)';
-        card.style.transform='scale(1) rotate(0deg)';
-      },300);
+    function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+    function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+
+    // start typing after tiny delay for effect
+    setTimeout(()=> typeNext(), 700);
+
+    // extra: clicking the stage retriggers surprise
+    document.getElementById('stage').addEventListener('click', ()=>{
+      runSurprise();
     });
+
   </script>
 </body>
 </html>
