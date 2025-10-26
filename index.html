@@ -17,11 +17,7 @@
     --pink: #fb7185;
   }
 
-  /* MODERN UPDATE:
-    We're adding a subtle animation to the background gradients.
-    By using `background-size: 200% 200%`, we can move the
-    `background-position` to create a slow, shifting effect.
-  */
+  /* Animated background gradient */
   body {
     margin: 0;
     font-family: "Poppins", sans-serif;
@@ -30,10 +26,10 @@
       radial-gradient(circle at 20% 30%, rgba(124,58,237,0.25), transparent),
       radial-gradient(circle at 80% 70%, rgba(250,204,21,0.18), transparent),
       linear-gradient(180deg, var(--dark), #1a1033);
-    background-size: 200% 200%; /* Needed for animation */
+    background-size: 200% 200%;
     overflow-x: hidden;
     text-align: center;
-    animation: animate-background 20s ease infinite; /* New animation */
+    animation: animate-background 20s ease infinite;
   }
 
   @keyframes animate-background {
@@ -44,7 +40,7 @@
   .container {
     padding: 24px 18px 100px;
     position: relative;
-    z-index: 10; /* Ensure content is above background elements */
+    z-index: 10; 
   }
 
   h1 {
@@ -52,25 +48,21 @@
     font-weight: 800;
     letter-spacing: -1px;
     margin-bottom: 8px;
-    animation: fadeInDown 1.2s ease 0.2s forwards; /* Added slight delay */
-    opacity: 0; /* Start hidden for animation */
+    animation: fadeInDown 1.2s ease 0.2s forwards;
+    opacity: 0;
   }
 
-  /* MODERN UPDATE:
-    We're animating the gradient on the 'h2' tag.
-    By setting a large `background-size` and animating the
-    `background-position`, we create a "flowing" text effect.
-  */
+  /* Animated gradient text for H2 */
   h2 {
     font-size: clamp(20px, 6vw, 28px);
     font-weight: 700;
     background: linear-gradient(90deg, #fff, #fde68a, #fff);
     -webkit-background-clip: text;
     color: transparent;
-    background-size: 200% auto; /* Needed for animation */
+    background-size: 200% auto;
     animation: fadeInUp 1.4s ease 0.4s forwards,
-               flow-gradient 3s linear infinite 2s; /* New flow animation */
-    opacity: 0; /* Start hidden for animation */
+               flow-gradient 3s linear infinite 2s;
+    opacity: 0;
   }
   
   @keyframes flow-gradient {
@@ -84,28 +76,25 @@
     font-size: 16px;
     line-height: 1.7;
     opacity: 0.9;
-    animation: fadeIn 2s ease 0.8s forwards; /* Added delay */
-    opacity: 0; /* Start hidden for animation */
+    animation: fadeIn 2s ease 0.8s forwards;
+    opacity: 0;
   }
 
+  /* Modern "glassmorphism" wish box */
   .wish-box {
     background: rgba(255,255,255,0.05);
     border-radius: 16px;
     padding: 18px;
     margin-top: 20px;
     box-shadow: 0 4px 30px rgba(0,0,0,0.4);
-    backdrop-filter: blur(10px); /* Modern glassmorphism effect */
+    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.1);
-    animation: popIn 1.6s ease 0.6s forwards; /* Added delay */
-    opacity: 0; /* Start hidden for animation */
+    animation: popIn 1.6s ease 0.6s forwards;
+    opacity: 0;
   }
 
-  /*
-    MODERN UPDATE:
-    We're adding a '::before' pseudo-element to create a
-    frosting layer, making the cake look more detailed.
-  */
+  /* Improved cake with frosting layer */
   .cake {
     position: relative;
     margin: 32px auto 0;
@@ -114,15 +103,15 @@
     background: linear-gradient(180deg, #fff, #ffe9b5);
     border-radius: 0 0 14px 14px; /* Only round bottom corners */
     box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-    animation: popIn 1s ease 1s forwards; /* Added delay */
-    opacity: 0; /* Start hidden for animation */
+    animation: popIn 1s ease 1s forwards;
+    opacity: 0;
   }
 
   /* This is the new frosting layer */
   .cake::before {
     content: '';
     position: absolute;
-    top: -15px; /* Sits on top of the cake */
+    top: -15px;
     left: 0;
     width: 100%;
     height: 20px;
@@ -131,10 +120,9 @@
     box-shadow: 0 -3px 10px rgba(255,255,255,0.2);
   }
 
-  /* We adjust the candle and flame to sit on the new frosting */
   .candle {
     position: absolute;
-    top: -35px; /* Adjusted: was -20px */
+    top: -35px; /* Adjusted for frosting */
     left: 50%;
     transform: translateX(-50%);
     width: 8px;
@@ -145,7 +133,7 @@
 
   .flame {
     position: absolute;
-    top: -47px; /* Adjusted: was -32px */
+    top: -47px; /* Adjusted for frosting */
     left: 50%;
     width: 16px;
     height: 16px;
@@ -155,6 +143,7 @@
     animation: flicker 0.8s infinite alternate;
   }
 
+  /* Flame flicker and glow */
   @keyframes flicker {
     0% { transform: translateX(-50%) scale(1); opacity: 1; box-shadow: 0 0 10px #ffb300, 0 0 20px #ffb300; }
     50% { transform: translateX(-50%) scale(1.1); opacity: 0.8; box-shadow: 0 0 15px #ffb300, 0 0 25px #ffb300; }
@@ -164,17 +153,17 @@
   .from {
     margin-top: 26px;
     font-size: 15px;
-    opacity: 0; /* Start hidden */
-    animation: fadeIn 2s ease 1.2s forwards; /* Added delay */
+    opacity: 0;
+    animation: fadeIn 2s ease 1.2s forwards;
   }
 
-  /* Balloons */
+  /* Balloons with sway animation */
   .balloon {
     position: absolute;
-    bottom: -100px; /* Start further down */
+    bottom: -100px;
     width: 60px;
     height: 80px;
-    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; /* More balloon-like shape */
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
     font-size: 18px;
     font-weight: 700;
     display: flex;
@@ -182,8 +171,8 @@
     align-items: center;
     animation: rise 9s infinite ease-in;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    transform: rotate(5deg); /* Slight initial tilt */
-    z-index: 5; /* Below content but above background */
+    transform: rotate(5deg);
+    z-index: 5;
   }
   .string {
     position: absolute;
@@ -198,7 +187,6 @@
   .balloon:nth-child(2){left:40%;background:linear-gradient(180deg,var(--gold),#f59e0b);animation-delay:2s;}
   .balloon:nth-child(3){left:70%;background:linear-gradient(180deg,var(--cyan),#0891b2);animation-delay:1s;}
   
-  /* Added a bit of horizontal sway to the balloon rise */
   @keyframes rise{
     0%{transform:translateY(0) rotate(5deg);opacity:0;}
     20%{opacity:1;}
@@ -206,13 +194,7 @@
     100%{transform:translateY(-700px) rotate(5deg);opacity:0;}
   }
 
-  /* REMOVED:
-    We are removing the old CSS-based confetti rules
-    (e.g., .confetti span, @keyframes fall)
-    because JavaScript will now handle this.
-  */
-
-  /* Animations */
+  /* Basic staggered animations */
   @keyframes fadeInDown {from{opacity:0;transform:translateY(-30px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeInUp {from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeIn {from{opacity:0}to{opacity:1}}
@@ -228,9 +210,15 @@
   <div class="wish-box">
     <p class="prayers">
       On this special day, may Allah bless you with happiness, health, and countless opportunities ahead.
-      May every sunrise bring hope, every code you write bring success, and every dream guide you to greatness.
+      May every sunrise bring hope, every road you travel bring success, and every dream guide you to greatness.
       You deserve endless joy, peace, and wisdom for the journey ahead.
     </p>
+
+    <p class="prayers">
+      May your paths always be safe and your journeys blessed. May you always be surrounded by the love 
+      of your family and the respect of all who know you. Here's to another year of health and happiness!
+    </p>
+
     <p class="prayers">
       Wishing you a year filled with light, learning, love, and purpose — may your future shine brighter than ever.
     </p>
@@ -248,19 +236,18 @@
 <div class="balloon">🎉<div class="string"></div></div>
 <div class="balloon">💛<div class="string"></div></div>
 
+
 <script>
   /*
-    MODERN UPDATE:
-    We're removing the old 'for' loop that created <span> elements.
-    Instead, we're using the 'canvas-confetti' library we imported.
-    This code creates a 5-second "rain" of confetti from the top.
+    This script runs the 'canvas-confetti' library
+    to create a 5-second "rain" of confetti from the top.
   */
   function fireConfetti() {
     const duration = 5 * 1000; // 5 seconds
     const animationEnd = Date.now() + duration;
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
     
-    // Our theme colors
+    // Our theme colors from the CSS
     const themeColors = ['#7c3aed', '#facc15', '#06b6d4', '#fb7185', '#f8fafc'];
 
     function randomInRange(min, max) {
