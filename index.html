@@ -1,55 +1,205 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>🎉 Happy Birthday — Muhammad Kashif</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --bg1:#0b0820;--bg2:#1b1033;--pink:#ec4899;--gold:#facc15;--teal:#06b6d4;--text:#f8fafc;
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;font-family:'Poppins',system-ui,Segoe UI,Roboto,Arial}
-    body{
-      background:linear-gradient(135deg,var(--bg1),var(--bg2));
-      color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden;
-    }
-    .card{
-      width:min(900px,95vw);background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-      border-radius:22px;padding:30px;position:relative;box-shadow:0 20px 80px rgba(0,0,0,0.6);
-      overflow:hidden;text-align:center;animation:fadeInUp 1.2s cubic-bezier(.2,.9,.28,1);
-    }
-    @keyframes fadeInUp{0%{opacity:0;transform:translateY(40px)}100%{opacity:1;transform:translateY(0)}}
-    .glow{position:absolute;inset:-2px;border-radius:24px;pointer-events:none;
-      background:conic-gradient(from 90deg at 50% 50%, var(--pink), var(--gold), var(--teal), var(--pink));
-      filter:blur(30px);opacity:0.6;animation:spin 10s linear infinite;}
-    @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-    h1{font-size:clamp(26px,6vw,44px);font-weight:800;background:linear-gradient(90deg,#fff,var(--gold));-webkit-background-clip:text;color:transparent;animation:floatText 4s ease-in-out infinite alternate;}
-    @keyframes floatText{0%{transform:translateY(0)}100%{transform:translateY(-8px)}}
-    h2{font-weight:700;font-size:clamp(20px,4.5vw,28px);margin-top:12px;background:linear-gradient(90deg,var(--teal),var(--gold));-webkit-background-clip:text;color:transparent;animation:glowPulse 3s infinite alternate;}
-    @keyframes glowPulse{0%{filter:brightness(0.8)}100%{filter:brightness(1.4)}}
-    p{margin:16px auto;max-width:600px;line-height:1.6;opacity:0.9;font-size:clamp(15px,3.8vw,18px)}
-    .wish{margin-top:22px;font-weight:600;font-size:clamp(17px,4.5vw,22px);background:linear-gradient(90deg,var(--pink),var(--gold));-webkit-background-clip:text;color:transparent;animation:textWave 3s ease-in-out infinite alternate;}
-    @keyframes textWave{0%{letter-spacing:0.5px}100%{letter-spacing:3px}}
-    .sparkle{position:absolute;width:6px;height:6px;background:var(--gold);border-radius:50%;animation:spark 4s linear infinite;}
-    @keyframes spark{0%{transform:translate(0,0) scale(0);opacity:0}20%{opacity:1;transform:translate(20px,-20px) scale(1.4)}100%{transform:translate(-40px,60px) scale(0);opacity:0}}
-    @media(max-width:600px){.card{padding:20px;}h1{font-size:30px}h2{font-size:22px}p{font-size:15px}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎉 Happy Birthday — From Muhammad Zain Mushtaq 🎂</title>
+<style>
+  :root {
+    --purple: #7c3aed;
+    --gold: #facc15;
+    --dark: #0b0820;
+    --light: #f8fafc;
+  }
+  body {
+    margin: 0;
+    font-family: "Poppins", sans-serif;
+    color: var(--light);
+    background: radial-gradient(circle at 20% 30%, rgba(124,58,237,0.25), transparent),
+                radial-gradient(circle at 80% 70%, rgba(250,204,21,0.18), transparent),
+                linear-gradient(180deg, var(--dark), #1a1033);
+    overflow-x: hidden;
+    text-align: center;
+  }
+
+  .container {
+    padding: 24px 18px 100px;
+    position: relative;
+  }
+
+  h1 {
+    font-size: clamp(28px, 8vw, 42px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+    animation: fadeInDown 1.2s ease forwards;
+  }
+
+  h2 {
+    font-size: clamp(20px, 6vw, 28px);
+    font-weight: 700;
+    background: linear-gradient(90deg, #fff, #fde68a);
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: fadeInUp 1.4s ease forwards;
+  }
+
+  .prayers {
+    margin-top: 22px;
+    font-size: 16px;
+    line-height: 1.7;
+    opacity: 0.9;
+    animation: fadeIn 2s ease forwards;
+  }
+
+  .wish-box {
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 18px;
+    margin-top: 20px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    animation: popIn 1.6s ease forwards;
+  }
+
+  .cake {
+    position: relative;
+    margin: 32px auto 0;
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(180deg, #fff, #ffe9b5);
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+
+  .candle {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 30px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #fef08a, #f59e0b);
+  }
+
+  .flame {
+    position: absolute;
+    top: -32px;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #fff7, #ffb300);
+    animation: flicker 0.8s infinite alternate;
+  }
+
+  @keyframes flicker {
+    0% { transform: translateX(-50%) scale(1); opacity: 1; }
+    50% { transform: translateX(-50%) scale(1.1); opacity: 0.8; }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+
+  .from {
+    margin-top: 26px;
+    font-size: 15px;
+    opacity: 0.85;
+  }
+
+  /* Balloons */
+  .balloon {
+    position: absolute;
+    bottom: -80px;
+    width: 60px;
+    height: 80px;
+    border-radius: 40px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: rise 9s infinite ease-in;
+  }
+  .string {
+    position: absolute;
+    bottom: -60px;
+    left: 50%;
+    width: 2px;
+    height: 60px;
+    background: rgba(255,255,255,0.4);
+    transform: translateX(-50%);
+  }
+  .balloon:nth-child(1){left:10%;background:linear-gradient(180deg,var(--purple),#5b21b6);animation-delay:0s;}
+  .balloon:nth-child(2){left:40%;background:linear-gradient(180deg,var(--gold),#f59e0b);animation-delay:2s;}
+  .balloon:nth-child(3){left:70%;background:linear-gradient(180deg,#06b6d4,#0891b2);animation-delay:1s;}
+  @keyframes rise{
+    0%{transform:translateY(0);opacity:0;}
+    20%{opacity:1;}
+    50%{transform:translateY(-350px);}
+    100%{transform:translateY(-600px);opacity:0;}
+  }
+
+  /* Confetti */
+  .confetti span {
+    position: absolute;
+    width: 8px;
+    height: 14px;
+    background: var(--gold);
+    animation: fall 6s linear infinite;
+  }
+  @keyframes fall {
+    0% { transform: translateY(-10px) rotate(0deg); }
+    100% { transform: translateY(100vh) rotate(600deg); }
+  }
+
+  /* Animations */
+  @keyframes fadeInDown {from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
+  @keyframes fadeInUp {from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+  @keyframes fadeIn {from{opacity:0}to{opacity:1}}
+  @keyframes popIn {from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+</style>
 </head>
 <body>
-  <div class="card">
-    <div class="glow"></div>
-    <h1>🎂 Happy Birthday, Muhammad Kashif 🎂</h1>
-    <h2>May your new year of life shine brighter than ever ✨</h2>
-    <p>Today, the world celebrates not just your birthday — but your journey, your kindness, your intelligence, and your unstoppable drive. You’ve already inspired many, and this new chapter will bring even more blessings, love, and success into your life.</p>
-    <p>May Allah bless you with endless happiness, good health, and prosperity. May every dream you hold in your heart become a reality, and may your path be filled with joy, creativity, and peace.</p>
-    <p>From your true friend — <strong>Muhammad Zain Mushtaq</strong> — sending heartfelt prayers and best wishes for your beautiful future ahead. You deserve every bit of happiness this world has to offer. 💫</p>
-    <div class="wish">🌸 Have a Magical Birthday and a Bright Future Ahead 🌸</div>
-    <div class="sparkle" style="top:10%;left:20%;animation-delay:0s"></div>
-    <div class="sparkle" style="top:30%;left:80%;animation-delay:1s"></div>
-    <div class="sparkle" style="top:70%;left:50%;animation-delay:2s"></div>
-    <div class="sparkle" style="top:85%;left:10%;animation-delay:3s"></div>
+<div class="container">
+  <h1>🎉 Happy Birthday</h1>
+  <h2>Dear Muhammad Kashif 🎂</h2>
+
+  <div class="wish-box">
+    <p class="prayers">
+      On this special day, may Allah bless you with happiness, health, and countless opportunities ahead.
+      May every sunrise bring hope, every code you write bring success, and every dream guide you to greatness.
+      You deserve endless joy, peace, and wisdom for the journey ahead.
+    </p>
+    <p class="prayers">
+      Wishing you a year filled with light, learning, love, and purpose — may your future shine brighter than ever.
+    </p>
   </div>
+
+  <div class="cake">
+    <div class="candle"></div>
+    <div class="flame"></div>
+  </div>
+
+  <p class="from">With prayers & best wishes,<br><strong>— Muhammad Zain Mushtaq</strong></p>
+</div>
+
+<div class="balloon">🎈<div class="string"></div></div>
+<div class="balloon">🎉<div class="string"></div></div>
+<div class="balloon">💛<div class="string"></div></div>
+
+<div class="confetti" id="confetti"></div>
+
+<script>
+  // generate confetti
+  const confetti = document.getElementById("confetti");
+  for (let i = 0; i < 40; i++) {
+    const span = document.createElement("span");
+    span.style.left = Math.random() * 100 + "%";
+    span.style.background = ["#facc15","#7c3aed","#06b6d4","#fb7185"][Math.floor(Math.random()*4)];
+    span.style.animationDelay = (Math.random() * 4) + "s";
+    confetti.appendChild(span);
+  }
+</script>
 </body>
 </html>
