@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Happy Friday — Muhammad Kashif</title>
+  <title>🌟 Happy Friday Surprise — Muhammad Kashif 🌟</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-gradient: linear-gradient(135deg, #0a0f2c, #1b2459, #2b3678);
+      --bg-gradient: radial-gradient(circle at top left, #0a0f2c, #1b2459 40%, #2b3678 80%, #000 100%);
       --accent: #8b5cf6;
       --accent2: #06b6d4;
       --text: #f1f5f9;
     }
 
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Poppins', sans-serif; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Poppins', sans-serif; overflow: hidden; }
 
     body {
       background: var(--bg-gradient);
@@ -22,113 +22,154 @@
       align-items: center;
       justify-content: center;
       color: var(--text);
-      overflow: hidden;
     }
 
     .card {
-      width: min(92vw, 800px);
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 20px;
-      backdrop-filter: blur(14px);
-      padding: 30px 24px;
+      width: min(92vw, 820px);
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 22px;
+      backdrop-filter: blur(16px);
+      padding: 36px 24px;
       text-align: center;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
-      animation: floatCard 3s ease-in-out infinite;
+      box-shadow: 0 12px 60px rgba(0,0,0,0.5);
+      animation: floatCard 4s ease-in-out infinite;
     }
 
     h1 {
-      font-size: clamp(26px, 6vw, 48px);
-      margin-bottom: 10px;
-      background: linear-gradient(90deg, #fff, #d1e9ff);
+      font-size: clamp(28px, 6vw, 50px);
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #fff, #b8e2ff, #fff);
       -webkit-background-clip: text;
       color: transparent;
-      animation: fadeIn 2s ease-in forwards;
+      animation: shineText 6s linear infinite;
     }
 
     .wish-line {
       font-size: clamp(18px, 4vw, 22px);
-      margin-bottom: 14px;
+      margin-bottom: 16px;
       opacity: 0;
-      animation: slideIn 2.5s ease forwards;
+      animation: slideIn 2s ease forwards 1.5s;
+    }
+
+    .prayer {
+      margin-top: 16px;
+      font-size: clamp(15px, 4vw, 18px);
+      line-height: 1.6;
+      opacity: 0;
+      animation: fadeUp 3s ease 2s forwards;
     }
 
     .from {
-      margin-top: 30px;
+      margin-top: 40px;
       font-weight: 600;
       font-size: 18px;
       color: #b9f3ff;
       animation: glowIn 4s ease-in-out infinite alternate;
     }
 
-    .prayer {
-      margin-top: 18px;
-      font-size: clamp(15px, 4vw, 18px);
-      line-height: 1.5;
-      opacity: 0;
-      animation: fadeUp 3s ease 1.5s forwards;
-    }
-
-    .sparkle {
+    .galaxy, .comet, .stars {
       position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
+      inset: 0;
       pointer-events: none;
       overflow: hidden;
     }
 
-    .sparkle span {
+    .comet div {
+      position: absolute;
+      width: 160px; height: 2px;
+      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.9));
+      border-radius: 999px;
+      animation: cometFly 8s linear infinite;
+    }
+
+    .stars span {
       position: absolute;
       display: block;
-      width: 6px; height: 6px;
-      background: var(--accent2);
+      width: 3px; height: 3px;
+      background: #fff;
       border-radius: 50%;
       opacity: 0.8;
-      animation: sparkleMove 6s linear infinite;
+      animation: starBlink 2s infinite alternate;
     }
 
-    @keyframes sparkleMove {
-      0% { transform: translateY(0) scale(1); opacity: 1; }
-      100% { transform: translateY(100vh) scale(0.2); opacity: 0; }
+    .burst span {
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: hsl(calc(360 * var(--i) / 10), 90%, 60%);
+      animation: burstAnim 3s ease-in-out infinite;
     }
 
-    @keyframes floatCard {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
-    }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
-    @keyframes slideIn { 0% { transform: translateY(40px); opacity: 0;} 100% { transform: translateY(0); opacity: 1;} }
-    @keyframes glowIn { 0% { text-shadow: 0 0 8px var(--accent);} 100% { text-shadow: 0 0 18px var(--accent2);} }
+    @keyframes floatCard { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @keyframes shineText { from { background-position: -200px; } to { background-position: 200px; } }
+    @keyframes slideIn { 0% { transform: translateY(40px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: translateY(0);} }
+    @keyframes glowIn { 0% { text-shadow: 0 0 8px var(--accent);} 100% { text-shadow: 0 0 20px var(--accent2);} }
+    @keyframes cometFly { 0% { transform: translateX(-20%) translateY(0) rotate(0deg); opacity: 0;} 50% { opacity: 1;} 100% { transform: translateX(120%) translateY(-40px) rotate(2deg); opacity: 0;} }
+    @keyframes starBlink { 0% { opacity: 0.3;} 100% { opacity: 1;} }
+    @keyframes burstAnim { 0% { transform: scale(0) translateY(0);} 50% { transform: scale(1.2) translateY(-50px);} 100% { transform: scale(0) translateY(0);} }
 
     @media (max-width: 600px) {
-      .card { padding: 20px 16px; }
-      h1 { font-size: 26px; }
+      .card { padding: 20px 14px; }
+      h1 { font-size: 28px; }
       .prayer { font-size: 16px; }
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="sparkle" id="sparkle"></div>
-    <h1>🌸 Happy Friday, Muhammad Kashif 🌸</h1>
-    <div class="wish-line">May your day be full of peace, joy, and endless blessings.</div>
-    <div class="prayer">May Allah bless your work, guide your heart, and make every code you write lead to success and happiness. Wishing you light, health, and strength for the days ahead. Keep dreaming big and believing — the best is yet to come. 🌙✨</div>
-    <div class="from">— From your best friend, Muhammad Zain Mushtaq 🤍</div>
+    <div class="galaxy">
+      <div class="comet">
+        <div style="top:20%;animation-delay:0s"></div>
+        <div style="top:60%;animation-delay:2s"></div>
+        <div style="top:80%;animation-delay:4s"></div>
+      </div>
+      <div class="stars" id="stars"></div>
+    </div>
+
+    <h1>🌌 Happy Friday, Muhammad Kashif 🌌</h1>
+    <div class="wish-line">A day filled with cosmic joy, divine peace, and miracles waiting to unfold ✨</div>
+    <div class="prayer">May your journey be brighter than a million stars. Every heartbeat echo with purpose and every step bring you closer to your dreams. The universe is aligning for your success — believe it. 🌠<br><br>
+    May Allah bless your every effort, guide your destiny with light, and make this Friday a gateway to boundless opportunities. 🌙💫</div>
+    <div class="from">— Always wishing you greatness, Muhammad Zain Mushtaq 🚀</div>
   </div>
 
+  <div class="burst" id="burst"></div>
+
   <script>
-    // sparkle animation generator
-    const sparkle = document.getElementById('sparkle');
-    for (let i = 0; i < 40; i++) {
-      const s = document.createElement('span');
-      s.style.left = Math.random() * 100 + '%';
-      s.style.animationDelay = (Math.random() * 4) + 's';
-      s.style.background = `hsl(${Math.random()*360}, 90%, 70%)`;
-      sparkle.appendChild(s);
+    // Random star field
+    const stars = document.getElementById('stars');
+    for(let i=0;i<100;i++){
+      const s=document.createElement('span');
+      s.style.left=Math.random()*100+'%';
+      s.style.top=Math.random()*100+'%';
+      s.style.animationDelay=(Math.random()*2)+'s';
+      stars.appendChild(s);
     }
+
+    // Burst animation with colored circles
+    const burst=document.getElementById('burst');
+    for(let i=0;i<10;i++){
+      const sp=document.createElement('span');
+      sp.style.setProperty('--i', i);
+      sp.style.left = '50%';
+      sp.style.top = '50%';
+      sp.style.animationDelay = (i*0.3)+'s';
+      burst.appendChild(sp);
+    }
+
+    // Add shock/surprise scale-up animation when loaded
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const card=document.querySelector('.card');
+      card.style.transform='scale(0) rotate(-10deg)';
+      setTimeout(()=>{
+        card.style.transition='transform 1.2s cubic-bezier(.22,1.2,.36,1)';
+        card.style.transform='scale(1) rotate(0deg)';
+      },300);
+    });
   </script>
 </body>
 </html>
