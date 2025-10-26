@@ -3,219 +3,75 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>🎉 Happy Birthday — Muhammad Kashif 🎂</title>
+  <title>🌟 Friday Blessings — Muhammad Kashif</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
   <style>
     :root{
       --bg1: #0b0820;
       --bg2: #1b1033;
       --purple: #7c3aed;
-      --gold: #f59e0b;
-      --glass: rgba(255,255,255,0.04);
+      --gold: #facc15;
+      --teal: #06b6d4;
       --text: #f8fafc;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;font-family:'Poppins',system-ui,Segoe UI,Roboto,Arial}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family:'Poppins',system-ui,Segoe UI,Roboto,Arial}
     body{
-      background: radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,0.12), transparent),
-                  radial-gradient(800px 500px at 90% 90%, rgba(245,158,11,0.08), transparent),
-                  linear-gradient(180deg,var(--bg1),var(--bg2));
-      display:flex;align-items:center;justify-content:center;padding:28px;overflow:hidden;color:var(--text);
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:var(--text);
+      display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden;
     }
-
-    /* Container */
-    .stage{
-      width:min(980px,96vw); max-width:1100px; border-radius:20px; padding:26px; position:relative;
-      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-      border:1px solid rgba(255,255,255,0.06); box-shadow: 0 18px 80px rgba(2,6,23,0.7);
-      overflow:hidden;
+    
+    .card{
+      width:min(900px,95vw);background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+      border-radius:22px;padding:30px;position:relative;box-shadow:0 20px 80px rgba(0,0,0,0.6);
+      overflow:hidden;text-align:center;
+      animation: fadeInUp 1.2s cubic-bezier(.2,.9,.28,1);
     }
-
-    /* glowing frame */
-    .glow-frame{
-      position:absolute; inset:-2px; border-radius:22px; pointer-events:none;
-      background: conic-gradient(from 200deg at 50% 50%, rgba(124,58,237,0.18), rgba(245,158,11,0.18), rgba(6,182,212,0.06), rgba(124,58,237,0.18));
-      filter: blur(22px); opacity:0.9; transform: scale(1.02);
-      animation: spinGlow 10s linear infinite;
+    
+    @keyframes fadeInUp{0%{opacity:0;transform:translateY(40px)}100%{opacity:1;transform:translateY(0)}}
+    
+    .glow{
+      position:absolute;inset:-2px;border-radius:24px;pointer-events:none;
+      background:conic-gradient(from 90deg at 50% 50%, var(--purple), var(--gold), var(--teal), var(--purple));
+      filter:blur(30px);opacity:0.6;animation:spin 10s linear infinite;
     }
+    @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 
-    @keyframes spinGlow{ 0%{transform:scale(1.02) rotate(0deg)} 100%{transform:scale(1.02) rotate(360deg)} }
+    h1{font-size:clamp(26px,6vw,44px);font-weight:800;background:linear-gradient(90deg,#fff,var(--gold));-webkit-background-clip:text;color:transparent;animation:floatText 4s ease-in-out infinite alternate;}
+    @keyframes floatText{0%{transform:translateY(0)}100%{transform:translateY(-8px)}}
 
-    .content{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:stretch}
+    h2{font-weight:700;font-size:clamp(20px,4.5vw,28px);margin-top:12px;background:linear-gradient(90deg,var(--teal),var(--gold));-webkit-background-clip:text;color:transparent;animation:glowPulse 3s infinite alternate;}
+    @keyframes glowPulse{0%{filter:brightness(0.8)}100%{filter:brightness(1.4)}}
 
-    /* Left - main */
-    .main{padding:18px 12px}
-    .badge{display:inline-block;padding:8px 14px;border-radius:999px;background:linear-gradient(90deg,var(--purple),var(--gold));font-weight:700;color:#071022;margin-bottom:12px}
+    p{margin:16px auto;max-width:600px;line-height:1.6;opacity:0.9;font-size:clamp(15px,3.8vw,18px)}
 
-    /* Animated headline */
-    .headline{font-size:clamp(28px,6vw,44px);line-height:1.02;margin:6px 0 12px;display:flex;flex-direction:column;gap:8px}
-    .happy{font-weight:800; letter-spacing:-0.02em; display:inline-block; transform-origin:center;}
-    .name{background:linear-gradient(90deg,#fff, #fffbeb); -webkit-background-clip:text; color:transparent; font-weight:900}
+    .wish{margin-top:22px;font-weight:600;font-size:clamp(17px,4.5vw,22px);background:linear-gradient(90deg,var(--purple),var(--gold));-webkit-background-clip:text;color:transparent;animation:textWave 3s ease-in-out infinite alternate;}
+    @keyframes textWave{0%{letter-spacing:0.5px}100%{letter-spacing:3px}}
 
-    /* type + glitch + fly */
-    .typed{font-size:18px; min-height:36px; margin-bottom:12px}
-    .glitch{
-      position:relative; display:inline-block; font-weight:900; font-size:20px;
-      color:var(--purple); mix-blend-mode:screen;
+    .sparkle{position:absolute;width:6px;height:6px;background:var(--gold);border-radius:50%;animation:spark 4s linear infinite;}
+    @keyframes spark{0%{transform:translate(0,0) scale(0);opacity:0}20%{opacity:1;transform:translate(20px,-20px) scale(1.4)}100%{transform:translate(-40px,60px) scale(0);opacity:0}}
+
+    @media(max-width:600px){
+      .card{padding:20px;}
+      h1{font-size:30px}
+      h2{font-size:22px}
+      p{font-size:15px}
     }
-    .glitch::before, .glitch::after{
-      content:attr(data-text); position:absolute; left:0; top:0; width:100%;
-      clip-path: var(--clip, none);
-    }
-    .glitch::before{color:var(--gold); transform:translate(6px,-4px) skewX(-8deg); opacity:0.85}
-    .glitch::after{color:#fff; transform:translate(-6px,4px) skewX(6deg); opacity:0.6}
-
-    /* surprise box */
-    .surprise{
-      margin-top:12px; border-radius:14px; padding:16px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-      border:1px solid rgba(255,255,255,0.04); box-shadow: 0 6px 30px rgba(2,6,23,0.6);
-      transform-origin:center; transition: transform .6s cubic-bezier(.2,.9,.28,1);
-    }
-    .surprise.pop{ transform: scale(1.03) rotate(-1deg); }
-
-    .prayers{font-size:16px; line-height:1.6; color:rgba(248,250,252,0.95)}
-
-    /* Right - balloons and cake */
-    .party{display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;padding:12px}
-    .balloon-wrap{position:relative;width:100%;height:320px}
-    .balloon{position:absolute; bottom:-40px; width:70px;height:92px;border-radius:40px 40px 46px 46px; display:grid; place-items:center; font-weight:800; color:#081022}
-    .string{width:2px;height:80px;background:rgba(0,0,0,0.15); position:absolute; top:84px; left:50%; transform:translateX(-50%)}
-
-    .balloon.purple{background:linear-gradient(180deg,var(--purple), #5b21b6); left:8%; animation: rise 9s ease-in infinite;}
-    .balloon.gold{background:linear-gradient(180deg,var(--gold), #f97316); left:28%; animation: rise 11s ease-in infinite;}
-    .balloon.cyan{background:linear-gradient(180deg,#06b6d4, #0891b2); left:56%; animation: rise 10s cubic-bezier(.2,.8,.2,1) infinite;}
-    .balloon.pink{background:linear-gradient(180deg,#fb7185, #f472b6); left:78%; animation: rise 12s ease-in-out infinite;}
-
-    @keyframes rise{ 0%{transform: translateY(0) rotate(-8deg); opacity:0} 10%{opacity:1} 50%{transform: translateY(-380px) rotate(6deg)} 100%{transform: translateY(-760px) rotate(-6deg); opacity:0} }
-
-    /* confetti */
-    .confetti{position:absolute; inset:0; pointer-events:none}
-    .confetti i{position:absolute; width:10px;height:16px; background:var(--gold); opacity:0.95; transform:rotate(10deg); animation: conf 6s linear infinite}
-    @keyframes conf{ 0%{transform:translateY(-20px) rotate(0) } 100%{transform:translateY(100vh) rotate(800deg)} }
-
-    /* cake */
-    .cake{width:120px;height:120px;border-radius:18px;background:linear-gradient(180deg,#fff,#ffe7c2);position:relative;box-shadow:0 8px 30px rgba(0,0,0,0.4);display:grid;place-items:center}
-    .candle{width:8px;height:30px;background:linear-gradient(180deg,#fde68a,#f97316);position:absolute;top:-14px;border-radius:3px}
-    .flame{width:14px;height:14px;border-radius:50%;position:absolute;top:-22px; background: radial-gradient(circle at 35% 30%, #fff4, #fff0 40%), linear-gradient(180deg,#fff176,#ff8a00); box-shadow:0 6px 18px rgba(255,140,0,0.6); animation: flicker 900ms infinite}
-    @keyframes flicker{ 0%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.03)}100%{transform:translateY(0) scale(1)} }
-
-    /* responsive */
-    @media (max-width:920px){ .content{grid-template-columns:1fr} .balloon-wrap{height:260px} .party{padding-top:6px} }
-    @media (max-width:480px){ .balloon{width:56px;height:74px} .cake{width:96px;height:96px; } }
-
   </style>
 </head>
 <body>
-  <section class="stage" id="stage">
-    <div class="glow-frame" aria-hidden="true"></div>
-
-    <div class="content">
-      <div class="main">
-        <div class="badge">Special Day</div>
-        <div class="headline">
-          <span class="happy">HAPPY BIRTHDAY</span>
-          <span class="name">Muhammad Kashif</span>
-        </div>
-
-        <div class="typed" id="typed"></div>
-
-        <div class="surprise" id="surpriseBox">
-          <div class="prayers" id="prayers">
-            <p>On this blessed day, I pray that Allah grants you abundant mercy, health, and sustained success in every step you take. May your heart be filled with peace, your efforts rewarded, and your future lit by endless opportunities. Remember that every code you ship and every dream you chase brings you closer to the purpose He has written for you.</p>
-            <p>Wishing you joy that overflows, strength that never fades, and guidance that always leads you to what is best. Happy Birthday — may this year be your brightest yet.</p>
-          </div>
-        </div>
-
-      </div>
-
-      <aside class="party">
-        <div class="balloon-wrap" aria-hidden="true">
-          <div class="balloon purple">MK<div class="string"></div></div>
-          <div class="balloon gold">🎂<div class="string"></div></div>
-          <div class="balloon cyan">✨<div class="string"></div></div>
-          <div class="balloon pink">🤍<div class="string"></div></div>
-        </div>
-
-        <div class="cake">
-          <div class="candle"></div>
-          <div class="flame" aria-hidden="true"></div>
-        </div>
-      </aside>
-    </div>
-
-    <div class="confetti" id="confetti"></div>
-  </section>
-
-  <script>
-    // Typing + Glitch reveal sequence
-    const typedEl = document.getElementById('typed');
-    const surprise = document.getElementById('surpriseBox');
-    const confetti = document.getElementById('confetti');
-
-    const lines = [
-      'May your code compile with ease, and your days be filled with joy.',
-      'May every challenge turn into a stepping stone, and every night end with gratitude.',
-      'Prayers for health, blessings, and unshakable hope for your future.'
-    ];
-
-    let lineIdx=0, charIdx=0;
-
-    function typeNext(){
-      if(lineIdx>=lines.length) return runSurprise();
-      const line = lines[lineIdx];
-      if(charIdx < line.length){
-        typedEl.innerHTML = `<span class="glitch" data-text="${escapeHtml(line.substring(0,charIdx+1))}">${escapeHtml(line.substring(0,charIdx+1))}</span>`;
-        charIdx++;
-        setTimeout(typeNext, 34 + Math.random()*40);
-      }else{
-        // small pause then next
-        lineIdx++; charIdx=0;
-        setTimeout(()=>{ typedEl.innerHTML += '<br/>'; typeNext(); }, 700);
-      }
-    }
-
-    function runSurprise(){
-      // pop the box
-      surprise.classList.add('pop');
-      // spawn confetti
-      for(let i=0;i<80;i++){
-        const el = document.createElement('i');
-        el.style.left = Math.random()*100 + '%';
-        el.style.background = pick(['#fde68a','#f97316','#7c3aed','#06b6d4','#fb7185']);
-        el.style.top = (Math.random()*40) + '%';
-        el.style.transform = `rotate(${Math.random()*360}deg)`;
-        el.style.animationDelay = (Math.random()*0.6) + 's';
-        confetti.appendChild(el);
-        // clean up
-        setTimeout(()=> el.remove(), 7000);
-      }
-      // balloon extra bounce
-      document.querySelectorAll('.balloon').forEach((b,i)=>{
-        b.animate([
-          { transform: 'translateY(0) rotate(0deg)' },
-          { transform: 'translateY(-18px) rotate(-6deg)' },
-          { transform: 'translateY(0) rotate(4deg)' }
-        ], { duration: 800, delay: i*80, easing: 'cubic-bezier(.2,.9,.28,1)' });
-      });
-
-      // subtle camera shake
-      const stage = document.getElementById('stage');
-      stage.animate([
-        { transform: 'translateY(0)' }, { transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }
-      ], { duration: 650, iterations: 2, easing: 'cubic-bezier(.2,.9,.28,1)' });
-    }
-
-    function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
-    function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
-
-    // start typing after tiny delay for effect
-    setTimeout(()=> typeNext(), 700);
-
-    // extra: clicking the stage retriggers surprise
-    document.getElementById('stage').addEventListener('click', ()=>{
-      runSurprise();
-    });
-
-  </script>
+  <div class="card">
+    <div class="glow"></div>
+    <h1>🌙 Blessed Friday, Muhammad Kashif</h1>
+    <h2>Wishing you light, success, and peace ✨</h2>
+    <p>On this beautiful Friday, may your heart be filled with faith and your hands with purpose. May every dream you chase bring you closer to ease and prosperity. I pray your code runs smooth, your goals shine brighter, and your soul finds joy in every little victory.</p>
+    <p>From your friend — <strong>Muhammad Zain Mushtaq</strong> — sending prayers, positivity, and hope for your future. May blessings follow you wherever you go, and may your journey be guided by wisdom and grace.</p>
+    <div class="wish">🌟 Have an inspiring, productive, and peaceful Friday 🌟</div>
+    <div class="sparkle" style="top:10%;left:20%;animation-delay:0s"></div>
+    <div class="sparkle" style="top:30%;left:80%;animation-delay:1s"></div>
+    <div class="sparkle" style="top:70%;left:50%;animation-delay:2s"></div>
+    <div class="sparkle" style="top:85%;left:10%;animation-delay:3s"></div>
+  </div>
 </body>
 </html>
