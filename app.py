@@ -1,8 +1,9 @@
 import streamlit as st
 import google.generativeai as genai
 import json
-import os
 import re
+import uuid
+import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -38,8 +39,7 @@ if st.session_state.api_key:
         st.stop()
 else:
     st.info("Please enter your Gemini API Key in the sidebar to enable AI features.")
-    # Stop execution if no API key is provided, but allow viewing sources
-    if 'page' in st.session_state and st.session_state.page != "View Job Sources":
+    if 'page' not in st.session_state or st.session_state.page != "View Job Sources":
         st.stop()
 
 
@@ -49,48 +49,20 @@ def safe_html(html_content):
     """Render HTML content safely in Streamlit."""
     if not html_content:
         return
-    # Use BeautifulSoup to parse and clean the HTML
     soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # Remove script and style tags
     for script_or_style in soup(["script", "style"]):
         script_or_style.decompose()
-        
-    # Convert to string and display as markdown (which Streamlit sanitizes)
-    # Using 'unsafe_allow_html=True' is necessary for rendering, 
-    # but we've reduced risk by stripping scripts/styles.
     st.markdown(soup.prettify(), unsafe_allow_html=True)
 
 def get_gemini_response(prompt_text, job_context=None, is_json=False):
-    """
-    Calls the Gemini API to get a response.
-    
-    Args:
-        prompt_text (str): The main user prompt.
-        job_context (str): Optional. A string (e.g., JSON) of all jobs for context.
-        is_json (bool): Optional. Whether to ask for a JSON response.
-    """
+    """Calls the Gemini API to get a response."""
     if not st.session_state.api_key:
         return "Please provide a Gemini API Key to use this feature."
-
     try:
         model = genai.GenerativeModel('gemini-2.5-flash-preview-09-2025')
-        
-        # Combine prompt and context if provided
-        if job_context:
-            full_prompt = f"{prompt_text}\n\nHere is the full list of available jobs:\n{job_context}"
-        else:
-            full_prompt = prompt_text
-
-        # Configure for JSON output if requested
-        generation_config = {}
-        if is_json:
-            generation_config["response_mime_type"] = "application/json"
-
-        response = model.generate_content(
-            full_prompt,
-            generation_config=generation_config
-        )
+        full_prompt = f"{prompt_text}\n\nHere is the full list of available jobs:\n{job_context}" if job_context else prompt_text
+        generation_config = {"response_mime_type": "application/json"} if is_json else {}
+        response = model.generate_content(full_prompt, generation_config=generation_config)
         return response.text
     except Exception as e:
         st.error(f"Gemini API error: {e}")
@@ -102,42 +74,223 @@ def clean_text(text):
         return ""
     return text.lower().strip()
 
-# --- Data Loading ---
+def create_search_text(job):
+    """Creates a single searchable string from job details."""
+    return (
+        f"{clean_text(job.get('title'))} "
+        f"{clean_text(job.get('organization'))} "
+        f"{clean_text(job.get('description'))}"
+    )
 
-@st.cache_data(ttl=600)  # Cache for 10 minutes
-def load_data(filepath="jobs.json"):
-    """Loads job data from the JSON file produced by Scrapy."""
+# --- Data Loading Functions ---
+
+def get_mock_jobs():
+    """Returns a list of mock jobs for demonstration."""
+    mock_data = [
+        {
+            "id": "mock-1", "title": "Senior Python Developer", "organization": "Techlogix", 
+            "location": "Lahore", "category": "IT", "source": "rozee.pk (Mock)",
+            "url": "https://www.rozee.pk", "posted_date": "2025-11-10",
+            "description": "<h3>Job Description</h3><p>We are looking for a Senior Python Developer with 5+ years of experience in Django and Flask. Must know data structures and algorithms.</p><ul><li>5+ years Python</li><li>Experience with AWS</li><li>Good communication skills</li></ul>"
+        },
+        {
+            "id": "mock-2", "title": "Section Officer (BPS-17)", "organization": "Federal Public Service Commission", 
+            "location": "Islamabad", "category": "Government", "source": "fpsc.gov.pk (Mock)",
+            "url": "https://www.fpsc.gov.pk", "posted_date": "2025-11-08",
+            "description": "<h3>Official Job Posting</h3><p>The FPSC invites applications for the post of Section Officer (BPS-17). Candidates must hold a Master's Degree (Second Class) and pass the CSS examination.</p>"
+        },
+        {
+            "id": "mock-3", "title": "Marketing Manager", "organization": "Packages Limited", 
+            "location": "Karachi", "category": "Marketing", "source": "dawn.com (Mock)",
+            "url": "https://www.dawn.com/jobs", "posted_date": "2025-11-09",
+            "description": "<p>Seeking an experienced Marketing Manager to lead our branding efforts in the southern region. MBA required.</p>"
+        },
+        {
+            "id": "mock-4", "title": "Frontend Developer (React)", "organization": "Systems Limited", 
+            "location": "Remote", "category": "IT", "source": "jobz.pk (Mock)",
+            "url": "https://www.jobz.pk", "posted_date": "2025-11-11",
+            "description": "<p>Join our remote team! We need a React developer with 2+ years of experience with Next.js and Tailwind CSS.</p>"
+        },
+        {
+            "id": "mock-5", "title": "Civil Engineer", "organization": "NESPAK", 
+            "location": "Lahore", "category": "Engineering", "source": "rozee.pk (Mock)",
+            "url": "https://www.rozee.pk", "posted_date": "2025-11-07",
+            "description": "<p>NESPAK requires a Civil Engineer for its Water Resources division. Must be registered with PEC.</p>"
+        },
+        {
+            "id": "mock-6", "title": "Content Writer", "organization": "Express News", 
+            "location": "Remote", "category": "Media", "source": "jang.com.pk (Mock)",
+            "url": "https://www.jang.com.pk/jobs", "posted_date": "2025-11-10",
+            "description": "<p>Urdu content writer needed for our digital platform. Must have excellent command of Urdu and knowledge of current affairs.</p>"
+        },
+        {
+            "id": "mock-7", "title": "Data Scientist", "organization": "Afiniti", 
+            "location": "Karachi", "category": "IT", "source": "linkedin.com (Mock)",
+            "url": "https://pk.linkedin.com/jobs", "posted_date": "2025-11-12",
+            "description": "<p>AI and Machine Learning expert wanted. PhD or Master's in Computer Science preferred. Strong Python & R skills.</p>"
+        },
+        {
+            "id": "mock-8", "title": "Accountant", "organization": "Fauji Foundation", 
+            "location": "Rawalpindi", "category": "Finance", "source": "fpsc.gov.pk (Mock)",
+            "url": "https://www.fpsc.gov.pk", "posted_date": "2025-11-05",
+            "description": "<p>ACCA/CMA qualified accountant with 3 years of experience in financial reporting and auditing.</p>"
+        }
+    ]
+    for job in mock_data:
+        job['search_text'] = create_search_text(job)
+    return mock_data
+
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_real_jobs_bs4_rozee():
+    """Scrapes Rozee.pk using Requests and BS4. Returns a dict."""
+    URL = "https://www.rozee.pk/search-jobs-in-pakistan"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+    
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            jobs = json.load(f)
+        response = requests.get(URL, headers=headers, timeout=10)
+        response.raise_for_status()
         
-        # Add a 'search_text' field for easier filtering
-        for job in jobs:
-            job['search_text'] = (
-                f"{clean_text(job.get('title'))} "
-                f"{clean_text(job.get('organization'))} "
-                f"{clean_text(job.get('description'))}"
-            )
+        soup = BeautifulSoup(response.content, 'html.parser')
+        job_cards = soup.select("div.job.job-c")
         
-        # Get last modified time
-        last_mod_time = os.path.getmtime(filepath)
-        last_updated = datetime.fromtimestamp(last_mod_time).strftime('%Y-%m-%d %I:%M %p')
-        return jobs, last_updated
-    except FileNotFoundError:
-        return None, None
-    except json.JSONDecodeError:
-        st.error(f"Error: The file '{filepath}' is corrupted or empty.")
-        return None, None
-    except Exception as e:
-        st.error(f"An error occurred while loading '{filepath}': {e}")
-        return None, None
+        if not job_cards:
+            return {'status': 'error', 'message': "No job cards found on Rozee.pk. The website's HTML structure may have changed."}
+
+        jobs_list = []
+        for card in job_cards[:20]: # Limit to 20 jobs
+            title = card.select_one("h2 a")
+            org = card.select_one("div.c-name")
+            loc = card.select_one("div.j-loc")
+            
+            if title and org and loc:
+                job_url = title.get('href')
+                if not job_url.startswith('http'):
+                    job_url = "https://www.rozee.pk" + job_url
+                
+                job = {
+                    "id": str(uuid.uuid4()),
+                    "title": title.text.strip(),
+                    "organization": org.text.strip(),
+                    "location": loc.text.strip(),
+                    "category": "IT", # Placeholder, would need to visit details page
+                    "source": "rozee.pk (Live)",
+                    "url": job_url,
+                    "posted_date": card.select_one(".j-posted").text.strip() if card.select_one(".j-posted") else "N/A",
+                    "description": f"<p>Description only available on the website. <a href='{job_url}' target='_blank'>Click here to view</a></p>"
+                }
+                job['search_text'] = create_search_text(job)
+                jobs_list.append(job)
+        
+        if not jobs_list:
+            return {'status': 'error', 'message': "Found job cards but could not parse them. Selectors may be outdated."}
+            
+        return {'status': 'success', 'jobs': jobs_list}
+
+    except requests.exceptions.RequestException as e:
+        return {'status': 'error', 'message': f"Error fetching data from Rozee.pk: {e}"}
+
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_real_jobs_bs4_jobz():
+    """Scrapes Jobz.pk using Requests and BS4. Returns a dict."""
+    URL = "https://www.jobz.pk/"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+
+    try:
+        response = requests.get(URL, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        job_cards = soup.select("div.job-list-default")
+        
+        if not job_cards:
+            return {'status': 'error', 'message': "No job cards found on Jobz.pk. The website's HTML structure may have changed."}
+
+        jobs_list = []
+        for card in job_cards[:20]: # Limit to 20 jobs
+            title_element = card.select_one("h4.job-title a")
+            org_element = card.select_one("span.job-company a")
+            loc_element = card.select_one("span.job-location")
+
+            if title_element and org_element and loc_element:
+                job_url = title_element.get('href')
+                if not job_url.startswith('http'):
+                    job_url = "https://www.jobz.pk" + job_url
+                
+                job = {
+                    "id": str(uuid.uuid4()),
+                    "title": title_element.text.strip(),
+                    "organization": org_element.text.strip(),
+                    "location": loc_element.text.strip(),
+                    "category": "General", # Placeholder
+                    "source": "jobz.pk (Live)",
+                    "url": job_url,
+                    "posted_date": "N/A", # Not easily visible on list page
+                    "description": f"<p>Description only available on the website. <a href='{job_url}' target='_blank'>Click here to view</a></p>"
+                }
+                job['search_text'] = create_search_text(job)
+                jobs_list.append(job)
+        
+        if not jobs_list:
+            return {'status': 'error', 'message': "Found job cards but could not parse them. Selectors may be outdated."}
+
+        return {'status': 'success', 'jobs': jobs_list}
+    except requests.exceptions.RequestException as e:
+        return {'status': 'error', 'message': f"Error fetching data from Jobz.pk: {e}"}
+
+@st.cache_data(ttl=3600)
+def get_real_jobs_bs4_dawn():
+    """Scrapes Dawn.com/jobs using Requests and BS4. Returns a dict."""
+    URL = "https://www.dawn.com/jobs"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+
+    try:
+        response = requests.get(URL, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        job_cards = soup.select("article.job")
+        
+        if not job_cards:
+            return {'status': 'error', 'message': "No job cards found on Dawn.com/jobs. The website's HTML structure may have changed."}
+
+        jobs_list = []
+        for card in job_cards[:20]: # Limit to 20 jobs
+            title_element = card.select_one("h2.job__title a")
+            org_element = card.select_one("span.job__company")
+            loc_element = card.select_one("span.job__location")
+            cat_element = card.select_one("span.job__sector")
+
+            if title_element and org_element and loc_element:
+                job_url = title_element.get('href')
+                
+                job = {
+                    "id": str(uuid.uuid4()),
+                    "title": title_element.text.strip(),
+                    "organization": org_element.text.strip(),
+                    "location": loc_element.text.strip(),
+                    "category": cat_element.text.strip() if cat_element else "General",
+                    "source": "dawn.com (Live)",
+                    "url": job_url,
+                    "posted_date": card.select_one("span.job__date").text.strip() if card.select_one("span.job__date") else "N/A",
+                    "description": f"<p>Description only available on the website. <a href='{job_url}' target='_blank'>Click here to view</a></p>"
+                }
+                job['search_text'] = create_search_text(job)
+                jobs_list.append(job)
+        
+        if not jobs_list:
+            return {'status': 'error', 'message': "Found job cards but could not parse them. Selectors may be outdated."}
+
+        return {'status': 'success', 'jobs': jobs_list}
+    except requests.exceptions.RequestException as e:
+        return {'status': 'error', 'message': f"Error fetching data from Dawn.com/jobs: {e}"}
+
 
 # --- Main App Logic ---
 
 # Initialize session state variables
 if "jobs" not in st.session_state:
-    st.session_state.jobs = []
-    st.session_state.last_updated = "Never"
+    st.session_state.jobs = get_mock_jobs()
+    st.session_state.last_updated = "Mock Data Loaded"
     
 if "page" not in st.session_state:
     st.session_state.page = "List"
@@ -152,33 +305,6 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
         {"role": "assistant", "content": "Welcome! Ask me to find jobs, e.g., 'Find me IT jobs in Karachi' or 'Are there any remote developer jobs?'"}
     ]
-
-# Load data only once
-if not st.session_state.jobs:
-    jobs, last_updated = load_data()
-    if jobs:
-        st.session_state.jobs = jobs
-        st.session_state.last_updated = last_updated
-    else:
-        st.error("Could not load job data from 'jobs.json'.")
-        st.info("""
-            This app reads data from `jobs.json`.
-            
-            Please run your Scrapy project (`job_scraper_project`) first to generate this file.
-            
-            **Example commands:**
-            ```bash
-            cd job_scraper_project
-            scrapy crawl rozee
-            scrapy crawl jobz
-            scrapy crawl dawn
-            ```
-            
-            After running your spiders, refresh this page.
-        """)
-        # Allow viewing sources even if no data
-        st.session_state.page = "View Job Sources"
-
 
 # --- Page Navigation ---
 
@@ -230,56 +356,87 @@ with st.sidebar:
 # --- Page: Job Listings (Home) ---
 if st.session_state.page == "List":
     
-    if not st.session_state.jobs:
-        st.warning("No jobs loaded. See sidebar for instructions.")
-    else:
-        # Apply filters
-        filtered_jobs = st.session_state.jobs
+    st.subheader("Live Data Scrapers")
+    st.markdown("Load mock data or run a live (slow) scrape. Live data will replace the current job list.")
+    
+    c1, c2, c3, c4 = st.columns(4)
+    
+    if c1.button("Load Mock Data", use_container_width=True):
+        st.session_state.jobs = get_mock_jobs()
+        st.session_state.last_updated = "Mock Data Loaded"
+        st.toast("Loaded mock data!", icon="🎉")
+        st.rerun()
 
-        f = st.session_state.filters
-        if f["keyword"]:
-            filtered_jobs = [j for j in filtered_jobs if f["keyword"].lower() in j.get('search_text', '')]
-        if f["location"] != "All":
-            filtered_jobs = [j for j in filtered_jobs if j.get('location') == f["location"]]
-        if f["category"] != "All":
-            filtered_jobs = [j for j in filtered_jobs if j.get('category') == f["category"]]
-        if f["source"] != "All":
-            filtered_jobs = [j for j in filtered_jobs if j.get('source') == f["source"]]
+    if c2.button("Live Scrape: Rozee.pk", use_container_width=True):
+        with st.spinner("Scraping Rozee.pk... This may take a moment."):
+            result = get_real_jobs_bs4_rozee()
+        if result['status'] == 'success':
+            st.session_state.jobs = result['jobs']
+            st.session_state.last_updated = datetime.now().strftime('%Y-%m-%d %I:%M %p')
+            st.toast(f"Success! Found {len(result['jobs'])} jobs from Rozee.pk", icon="🚀")
+            st.rerun()
+        else:
+            st.error(f"Scrape Failed: {result['message']}")
 
-        # Display results
-        st.subheader(f"Showing {len(filtered_jobs)} of {len(st.session_state.jobs)} jobs")
+    if c3.button("Live Scrape: Jobz.pk", use_container_width=True):
+        with st.spinner("Scraping Jobz.pk... This may take a moment."):
+            result = get_real_jobs_bs4_jobz()
+        if result['status'] == 'success':
+            st.session_state.jobs = result['jobs']
+            st.session_state.last_updated = datetime.now().strftime('%Y-%m-%d %I:%M %p')
+            st.toast(f"Success! Found {len(result['jobs'])} jobs from Jobz.pk", icon="🚀")
+            st.rerun()
+        else:
+            st.error(f"Scrape Failed: {result['message']}")
+            
+    if c4.button("Live Scrape: Dawn.com", use_container_width=True):
+        with st.spinner("Scraping Dawn.com/jobs... This may take a moment."):
+            result = get_real_jobs_bs4_dawn()
+        if result['status'] == 'success':
+            st.session_state.jobs = result['jobs']
+            st.session_state.last_updated = datetime.now().strftime('%Y-%m-%d %I:%M %p')
+            st.toast(f"Success! Found {len(result['jobs'])} jobs from Dawn.com", icon="🚀")
+            st.rerun()
+        else:
+            st.error(f"Scrape Failed: {result['message']}")
+
+    st.divider()
+
+    # Apply filters
+    filtered_jobs = st.session_state.jobs
+    f = st.session_state.filters
+    if f["keyword"]:
+        filtered_jobs = [j for j in filtered_jobs if f["keyword"].lower() in j.get('search_text', '')]
+    if f["location"] != "All":
+        filtered_jobs = [j for j in filtered_jobs if j.get('location') == f["location"]]
+    if f["category"] != "All":
+        filtered_jobs = [j for j in filtered_jobs if j.get('category') == f["category"]]
+    if f["source"] != "All":
+        filtered_jobs = [j for j in filtered_jobs if j.get('source') == f["source"]]
+
+    # Display results
+    st.subheader(f"Showing {len(filtered_jobs)} of {len(st.session_state.jobs)} jobs")
+    
+    cols = st.columns([3, 1, 1, 1])
+    cols[0].markdown("**Job Title**")
+    cols[1].markdown("**Organization**")
+    cols[2].markdown("**Location**")
+    cols[3].markdown("**Source**")
         
+    st.divider()
+
+    if not filtered_jobs:
+        st.warning("No jobs match your filter criteria.")
+
+    for job in filtered_jobs:
         cols = st.columns([3, 1, 1, 1])
-        with cols[0]:
-            st.markdown("**Job Title**")
-        with cols[1]:
-            st.markdown("**Organization**")
-        with cols[2]:
-            st.markdown("**Location**")
-        with cols[3]:
-            st.markdown("**Source**")
-            
-        st.divider()
-
-        if not filtered_jobs:
-            st.warning("No jobs match your filter criteria.")
-
-        for job in filtered_jobs:
-            cols = st.columns([3, 1, 1, 1])
-            is_saved = job.get('id') in st.session_state.saved_jobs
-            
-            with cols[0]:
-                title_display = f"❤️ {job.get('title')}" if is_saved else job.get('title')
-                st.button(title_display, on_click=set_page, args=("Detail", job.get('id')), key=f"title_{job.get('id')}", use_container_width=True)
-            
-            with cols[1]:
-                st.markdown(job.get('organization', 'N/A'))
-            
-            with cols[2]:
-                st.markdown(job.get('location', 'N/A'))
-            
-            with cols[3]:
-                st.markdown(job.get('source', 'N/A'))
+        is_saved = job.get('id') in st.session_state.saved_jobs
+        
+        title_display = f"❤️ {job.get('title')}" if is_saved else job.get('title')
+        cols[0].button(title_display, on_click=set_page, args=("Detail", job.get('id')), key=f"title_{job.get('id')}", use_container_width=True)
+        cols[1].markdown(job.get('organization', 'N/A'))
+        cols[2].markdown(job.get('location', 'N/A'))
+        cols[3].markdown(job.get('source', 'N/A'))
 
 
 # --- Page: Job Detail ---
@@ -309,42 +466,33 @@ elif st.session_state.page == "Detail":
                 st.rerun()
 
         st.link_button("🚀 Apply Now (External Link)", job.get('url', '#'), use_container_width=True)
-        
         st.divider()
 
         # Job Info
         info_cols = st.columns(3)
-        with info_cols[0]:
-            st.markdown(f"**Location:**\n\n{job.get('location', 'N/A')}")
-        with info_cols[1]:
-            st.markdown(f"**Category:**\n\n{job.get('category', 'N/A')}")
-        with info_cols[2]:
-            st.markdown(f"**Source:**\n\n{job.get('source', 'N/A')}")
-            st.markdown(f"**Posted:**\n\n{job.get('posted_date', 'N/A')}")
-
+        info_cols[0].markdown(f"**Location:**\n\n{job.get('location', 'N/A')}")
+        info_cols[1].markdown(f"**Category:**\n\n{job.get('category', 'N/A')}")
+        info_cols[2].markdown(f"**Source:**\n\n{job.get('source', 'N/A')}")
+        info_cols[2].markdown(f"**Posted:**\n\n{job.get('posted_date', 'N/A')}")
         st.divider()
 
         # AI Summary
         st.subheader("🤖 AI Summary")
         if "summary_cache" not in st.session_state:
             st.session_state.summary_cache = {}
-
         summary_key = f"summary_{job_id}"
 
         if summary_key not in st.session_state.summary_cache:
             if st.button("Generate AI Summary", key="gen_summary", use_container_width=True):
                 with st.spinner("Summarizing job description with Gemini..."):
-                    # Create a clean text version for the prompt
                     desc_soup = BeautifulSoup(job.get('description', ''), 'html.parser')
                     clean_desc = desc_soup.get_text(separator=" ").strip()
-                    
                     prompt = f"""
                     Please summarize the following job description in 3-5 bullet points.
                     Focus on:
                     1. The core role/responsibility.
                     2. Key qualifications or required skills (e.g., '5+ years Java', 'Master's Degree').
                     3. Any mentioned benefits or salary.
-                    
                     Here is the job description:
                     ---
                     {clean_desc}
@@ -356,17 +504,11 @@ elif st.session_state.page == "Detail":
         else:
             st.markdown(st.session_state.summary_cache[summary_key])
             if st.button("Regenerate Summary", key="regen_summary", use_container_width=True):
-                with st.spinner("Regenerating summary with Gemini..."):
-                    desc_soup = BeautifulSoup(job.get('description', ''), 'html.parser')
-                    clean_desc = desc_soup.get_text(separator=" ").strip()
-                    prompt = f"Please provide a new, slightly different summary (3-5 bullet points) for this job description:\n\n{clean_desc}"
-                    summary = get_gemini_response(prompt)
-                    st.session_state.summary_cache[summary_key] = summary
-                    st.rerun()
+                # This button will clear the cache and rerun, triggering the 'if' block above
+                st.session_state.summary_cache.pop(summary_key, None)
+                st.rerun()
 
         st.divider()
-        
-        # Full Description
         st.subheader("Full Job Description")
         safe_html(job.get('description', 'No description provided.'))
 
@@ -381,12 +523,9 @@ elif st.session_state.page == "Saved":
         st.divider()
         for job_id, job in st.session_state.saved_jobs.items():
             cols = st.columns([3, 2, 1])
-            with cols[0]:
-                st.button(job.get('title'), on_click=set_page, args=("Detail", job_id), key=f"saved_{job_id}", use_container_width=True)
-            with cols[1]:
-                st.markdown(job.get('organization', 'N/A'))
-            with cols[2]:
-                st.markdown(job.get('location', 'N/A'))
+            cols[0].button(job.get('title'), on_click=set_page, args=("Detail", job_id), key=f"saved_{job_id}", use_container_width=True)
+            cols[1].markdown(job.get('organization', 'N/A'))
+            cols[2].markdown(job.get('location', 'N/A'))
 
 
 # --- Page: AI Chatbot ---
@@ -394,97 +533,75 @@ elif st.session_state.page == "Chat":
     st.header("🤖 AI Job Assistant")
     st.markdown("Ask me to find jobs from the current listings.")
 
-    # Display chat history
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Get user input
     if prompt := st.chat_input("e.g., 'Find me engineering jobs in Karachi'"):
-        # Add user message to history
         st.session_state.chat_history.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Generate assistant response
         with st.chat_message("assistant"):
             with st.spinner("AI is thinking..."):
-                # Create a simplified JSON of all jobs for context
-                # This is crucial for the AI to answer based on *your* data
                 if not st.session_state.jobs:
                     st.warning("No job data is loaded. The AI cannot find jobs.")
                     st.stop()
                     
-                simplified_jobs = [
-                    {
-                        "id": j.get("id"),
-                        "title": j.get("title"),
-                        "organization": j.get("organization"),
-                        "location": j.get("location"),
-                        "category": j.get("category"),
-                        "source": j.get("source")
-                    } for j in st.session_state.jobs
-                ]
+                simplified_jobs = [{"id": j.get("id"), "title": j.get("title"), "organization": j.get("organization"), "location": j.get("location"), "category": j.get("category"), "source": j.get("source")} for j in st.session_state.jobs]
                 jobs_context = json.dumps(simplified_jobs)
                 
-                # Create a system prompt
                 system_prompt = f"""
                 You are a friendly and helpful AI Job Assistant for 'Pak Job Finder'.
                 Your task is to answer user questions *only* based on the list of available jobs provided below.
-                
                 Rules:
-                1.  Analyze the user's prompt: "{prompt}"
-                2.  Scan the 'Here is the full list of available jobs' JSON to find matching jobs.
-                3.  If you find matching jobs, list them clearly with their title, organization, and location.
-                4.  If you don't find any matches, say so politely (e.g., "Sorry, I couldn't find any jobs that match...").
-                5.  Do not make up jobs or information. Stick *only* to the provided list.
-                6.  Be conversational and friendly.
+                1. Analyze the user's prompt: "{prompt}"
+                2. Scan the 'Here is the full list of available jobs' JSON to find matching jobs.
+                3. If you find matching jobs, list them clearly with their title, organization, and location.
+                4. If you don't find any matches, say so politely.
+                5. Do not make up jobs. Stick *only* to the provided list.
+                6. Be conversational and friendly.
                 """
                 
                 response_text = get_gemini_response(system_prompt, job_context=jobs_context)
-                
-                # Post-process the response to make job titles clickable
-                # This is a simple regex, might need refinement
-                def make_links_clickable(match):
-                    job_title = match.group(1)
-                    # Find the job in our state
-                    found_job = next((j for j in st.session_state.jobs if j.get('title') == job_title), None)
-                    if found_job:
-                        # This part is tricky. Streamlit can't easily embed buttons in chat.
-                        # We'll just list them. A future improvement would be to return JSON.
-                        return f"**{job_title}**" # Make it bold
-                    return job_title
-
-                # This regex is a placeholder. A better way is to ask the AI for JSON.
-                # For now, we'll just display the text.
-                # response_text = re.sub(r"\*\*(.*?)\*\*", make_links_clickable, response_text)
-
                 st.markdown(response_text)
                 st.session_state.chat_history.append({"role": "assistant", "content": response_text})
 
 # --- Page: View Job Sources ---
 elif st.session_state.page == "View Job Sources":
     st.header("📜 Job Data Sources")
-    st.markdown("This app is designed to aggregate job postings from a wide variety of sources. The data is collected by a separate backend process (your Scrapy project) and read from the `jobs.json` file.")
-    st.markdown("Below is the target list of websites from `job_links.txt` that the backend scraper is designed to crawl.")
+    st.markdown("This app is designed to aggregate job postings from a wide variety of sources. The mock data and live scrapers pull from sites like these, based on the lists you provided.")
     
-    try:
-        with open("job_links.txt", 'r') as f:
-            links = f.readlines()
-        
-        st.subheader(f"Target Websites ({len(links)})")
-        
-        # Group links for better display
-        st.markdown("#### Pakistani Portals")
-        pk_links = [link for link in links if ".pk" in link or ".gov.pk" in link or "pakistan" in link]
-        st.text_area("Pakistani Links", "\n".join(pk_links), height=300)
+    st.subheader("Example Target Websites")
+    
+    st.markdown("#### Pakistani Portals")
+    st.text_area("Pakistani Links", 
+"""https://www.rozee.pk
+https://www.jobz.pk
+https://pk.indeed.com
+https://pk.linkedin.com/jobs
+https://www.mustakbil.com
+https://www.bayt.com/en/pakistan/
+https://www.brightspyre.com
+https://www.paperpk.com/jobs/
+https://www.jobsalert.pk""", height=200)
 
-        st.markdown("#### International & Regional Portals")
-        intl_links = [link for link in links if ".pk" not in link and ".gov.pk" not in link and "pakistan" not in link]
-        st.text_area("International Links", "\n".join(intl_links), height=300)
+    st.markdown("#### Government & Newspaper Portals")
+    st.text_area("Government/News Links",
+"""https://www.fpsc.gov.pk
+https://www.ppsc.gop.pk
+https://www.spsc.gov.pk
+https://njp.gov.pk/
+https://www.dawn.com/jobs
+https://www.jang.com.pk/jobs""", height=150)
 
-    except FileNotFoundError:
-        st.error("`job_links.txt` not found.")
-        st.info("Please make sure the `job_links.txt` file is in the same directory as `app.py`.")
-    except Exception as e:
-        st.error(f"Could not read `job_links.txt`: {e}")
+    st.markdown("#### International & Regional Portals")
+    st.text_area("International Links",
+"""https://www.bayt.com
+https://www.naukrigulf.com
+https://www.linkedin.com/jobs
+https://www.glassdoor.com
+https://weworkremotely.com
+https://www.flexjobs.com
+https://www.usajobs.gov
+https://www.gov.uk/find-a-job""", height=200)
