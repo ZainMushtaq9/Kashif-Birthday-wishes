@@ -7,6 +7,7 @@ from textwrap import dedent
 import requests
 from bs4 import BeautifulSoup
 import uuid # To create unique IDs for scraped items
+import re # <-- Import regular expressions
 
 # --- Configuration ---
 st.set_page_config(
@@ -15,9 +16,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- Mock Data (Replaces data/jobs.ts) ---
+# --- Mock Data (UPDATED) ---
 def get_mock_jobs():
-    """Simulates fetching jobs from a data source."""
+    """
+    Simulates fetching jobs from a data source.
+    UPDATED: Now includes more diverse examples based on the provided PDF lists.
+    """
     return [
         {
             "id": "j1",
@@ -155,23 +159,94 @@ def get_mock_jobs():
                 **Qualifications:**
                 - Bachelor's degree in Marketing, Business, or related field (MBA preferred).
                 - 5+ years of brand management or marketing experience in the FMCG sector.
-                - Proven track record of successful marketing campaigns.
+                - Proven track of successful marketing campaigns.
                 - Strong analytical and leadership skills.
             """)
-        }
+        },
+        {
+            "id": "j6",
+            "title": "Lecturer in English (BPS-18)",
+            "organization": "Punjab Public Service Commission (PPSC)",
+            "location": "Lahore",
+            "category": "Government",
+            "source": "ppsc.gop.pk",
+            "url": "https://www.ppsc.gop.pk",
+            "posted_date": "2025-11-07",
+            "description": dedent("""
+                **Case No. 42-RF/2025**
+                **Position:** Lecturer in English (Female) (BPS-18)
+                **Department:** Punjab Higher Education Department
+                **Qualifications:**
+                - Master's Degree (at least 2nd Division) in English.
+                - OR Equivalent qualification from a recognized university.
+                **Note:** Candidates must pass a written examination and interview.
+            """)
+        },
+        {
+            "id": "j7",
+            "title": "Finance Manager",
+            "organization": "A Leading Multinational",
+            "location": "Dubai, UAE",
+            "category": "Finance",
+            "source": "gulftalent.com",
+            "url": "https://www.gulftalent.com",
+            "posted_date": "2025-11-05",
+            "description": dedent("""
+                **Role:**
+                Our client, a leading multinational corporation, is looking to hire a Finance Manager to be based in their Dubai regional headquarters. The candidate will be responsible for overseeing all financial operations, managing budgets, and providing strategic financial guidance.
+
+                **Requirements:**
+                - Bachelor's degree in Finance or Accounting.
+                - Professional certification (e.g., CPA, ACCA, CMA) is highly preferred.
+                - 7-10 years of experience in a senior financial role.
+                - Experience in the GCC region is a strong plus.
+                - Strong knowledge of IFRS.
+            """)
+        },
+        {
+            "id": "j8",
+            "title": "Content Writer - Urdu",
+            "organization": "Digital Media Group",
+            "location": "Karachi",
+            "category": "Media",
+            "source": "dawn.com/jobs",
+            "url": "https://www.dawn.com/jobs",
+            "posted_date": "2025-11-12",
+            "description": dedent("""
+                **Job Opening: Content Writer (Urdu)**
+                A reputable digital media group requires a Content Writer for its Urdu news portal.
+                - Candidate must have excellent Urdu writing, typing, and editing skills.
+                - Must be aware of current affairs, social media trends.
+                - Minimum 2 years of experience in a similar role.
+                - Location: Karachi
+                - Send your CV and work samples to [email protected]
+            """)
+        },
     ]
 
-# --- NEW: Real Scraping Function (Quick Demo) ---
+# --- NEW: Job Sources Function (Reads from .txt file) ---
+@st.cache_data # Cache this file read
+def get_links_from_txt(file_path="job_links.txt"):
+    """Reads a .txt file and returns a list of links."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            links = [line.strip() for line in f if line.strip()]
+        return links
+    except FileNotFoundError:
+        st.error(f"Error: {file_path} not found.")
+        return []
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
+        return []
+
+
+# --- Scraping Function 1 (rozee.pk) ---
 @st.cache_data(ttl=600) # Cache for 10 minutes to avoid re-scraping
-def get_real_jobs_bs4():
+def get_real_jobs_rozee_pk():
     """
-    Simulates a REAL scrape using Requests and BeautifulSoup.
-    This is a quick demo and is NOT robust.
-    - It blocks the UI thread.
-    - Selectors are brittle and WILL break when rozee.pk changes its HTML.
-    - Only scrapes the first page.
+    Scrapes rozee.pk using Requests and BeautifulSoup.
+    Returns a dictionary: {"status": "success", "data": []} or {"status": "error", "message": "..."}
     """
-    st.toast("Fetching live jobs from rozee.pk...")
     scraped_jobs = []
     try:
         url = "https://www.rozee.pk/search-jobs-in-pakistan"
@@ -186,7 +261,6 @@ def get_real_jobs_bs4():
         # --- IMPORTANT ---
         # These selectors are *examples* based on the HTML of rozee.pk
         # at the time of writing. They WILL break.
-        # You must inspect the site and update them.
         job_cards = soup.find_all("div", class_=["job", "job-c"]) # Find all job card containers
 
         for card in job_cards:
@@ -195,31 +269,92 @@ def get_real_jobs_bs4():
             loc_element = card.find("div", class_="j-loc")
             
             if title_element and org_element and loc_element:
+                job_url = title_element.find("a")["href"] if title_element.find("a") else "https://www.rozee.pk"
                 job = {
                     "id": str(uuid.uuid4()), # Generate a unique ID
                     "title": title_element.get_text(strip=True),
                     "organization": org_element.get_text(strip=True),
                     "location": loc_element.get_text(strip=True),
-                    "category": "IT", # Category is hard to guess, hardcoding
+                    "category": "Scraped", # Category is hard to guess, hardcoding
                     "source": "rozee.pk (Live)",
-                    "url": title_element.find("a")["href"] if title_element.find("a") else "https://www.rozee.pk",
+                    "url": job_url,
                     "posted_date": datetime.now().strftime('%Y-%m-%d'),
                     "description": f"This is a live-scraped job. Full description available at the source URL. {title_element.get_text(strip=True)} at {org_element.get_text(strip=True)}."
                 }
                 scraped_jobs.append(job)
 
         if not scraped_jobs:
-            st.error("Could not find any jobs with the current selectors. The website's HTML has likely changed.")
-            return []
+            return {"status": "error", "message": "Could not find any jobs with the current selectors (rozee.pk). The website's HTML has likely changed."}
             
-        return scraped_jobs
+        return {"status": "success", "data": scraped_jobs}
 
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching data: {e}")
-        return []
+        return {"status": "error", "message": f"Error fetching data (rozee.pk): {e}"}
     except Exception as e:
-        st.error(f"Error parsing data: {e}. The website's HTML has likely changed.")
-        return []
+        return {"status": "error", "message": f"Error parsing data (rozee.pk): {e}. The website's HTML has likely changed."}
+
+# --- NEW: Scraping Function 2 (jobz.pk) ---
+@st.cache_data(ttl=600) # Cache for 10 minutes
+def get_real_jobs_jobz_pk():
+    """
+    Scrapes jobz.pk using Requests and BeautifulSoup.
+    Returns a dictionary: {"status": "success", "data": []} or {"status": "error", "message": "..."}
+    """
+    scraped_jobs = []
+    try:
+        url = "https://www.jobz.pk/"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # --- IMPORTANT ---
+        # These selectors are *guesses* based on the HTML of jobz.pk.
+        # They are very likely to break when the site's HTML changes.
+        job_cards = soup.find_all("div", class_="job")
+
+        for card in job_cards:
+            title_element = card.find("h2")
+            p_elements = card.find_all("p")
+            
+            if title_element and len(p_elements) > 0:
+                title_link = title_element.find("a")
+                if not title_link:
+                    continue
+
+                title = title_link.get_text(strip=True)
+                job_url = title_link.get("href", "https://www.jobz.pk")
+                
+                # Guessing company and location from <p> tags
+                organization = p_elements[0].find("strong").get_text(strip=True) if p_elements[0].find("strong") else "N/A"
+                location = p_elements[0].find_all("strong")[1].get_text(strip=True) if len(p_elements[0].find_all("strong")) > 1 else "N/A"
+                
+                job = {
+                    "id": str(uuid.uuid4()),
+                    "title": title,
+                    "organization": organization,
+                    "location": location,
+                    "category": "Scraped",
+                    "source": "jobz.pk (Live)",
+                    "url": job_url,
+                    "posted_date": datetime.now().strftime('%Y-%m-%d'),
+                    "description": f"This is a live-scraped job from jobz.pk. Full description available at the source URL. {title} at {organization}."
+                }
+                scraped_jobs.append(job)
+
+        if not scraped_jobs:
+            return {"status": "error", "message": "Could not find any jobs with the current selectors (jobz.pk). The website's HTML has likely changed."}
+        
+        return {"status": "success", "data": scraped_jobs}
+
+    except requests.exceptions.RequestException as e:
+        return {"status": "error", "message": f"Error fetching data (jobz.pk): {e}"}
+    except Exception as e:
+        return {"status": "error", "message": f"Error parsing data (jobz.pk): {e}. The website's HTML has likely changed."}
+
 
 # --- Gemini API Service (Replaces geminiService.ts) ---
 
@@ -288,7 +423,7 @@ def get_chatbot_response(api_key, chat_history, all_jobs, user_query):
 # --- Session State Initialization (Replaces React Hooks) ---
 
 if 'page' not in st.session_state:
-    st.session_state.page = 'list'  # 'list' or 'detail'
+    st.session_state.page = 'list'  # 'list', 'detail', 'saved', or 'sources'
 if 'selected_job_id' not in st.session_state:
     st.session_state.selected_job_id = None
 if 'saved_jobs' not in st.session_state:
@@ -325,10 +460,17 @@ def navigate_to_list():
     """Callback to switch to the list view."""
     st.session_state.page = 'list'
     st.session_state.selected_job_id = None
+    st.session_state.ai_summary = None # Clear summary on nav
 
 def navigate_to_saved():
     """Callback to switch to the saved jobs view."""
     st.session_state.page = 'saved'
+    st.session_state.selected_job_id = None
+
+# --- NEW: Navigation for Job Sources page ---
+def navigate_to_sources():
+    """Callback to switch to the job sources view."""
+    st.session_state.page = 'sources'
     st.session_state.selected_job_id = None
 
 def toggle_save_job(job_id):
@@ -346,19 +488,40 @@ st.sidebar.divider()
 st.sidebar.button("Mock Job List", on_click=navigate_to_list, use_container_width=True)
 saved_job_count = len(st.session_state.saved_jobs)
 st.sidebar.button(f"Saved Jobs ({saved_job_count})", on_click=navigate_to_saved, use_container_width=True)
+st.sidebar.button("View Job Sources", on_click=navigate_to_sources, use_container_width=True) # NEW BUTTON
 
 st.sidebar.divider()
+st.sidebar.subheader("Live Scraping Demos")
 
-# --- NEW: Button to trigger the live scrape ---
-if st.sidebar.button("Fetch Live Jobs (Demo)", use_container_width=True):
-    # This will block the UI while running
+# --- UPDATED: Button logic for multiple scrapers ---
+if st.sidebar.button("Fetch Live (rozee.pk)", use_container_width=True):
     with st.spinner("Scraping rozee.pk... This is slow!"):
-        st.session_state.jobs = get_real_jobs_bs4()
-        # Clear selected job in case it no longer exists
-        st.session_state.page = 'list'
-        st.session_state.selected_job_id = None
-        st.session_state.ai_summary = None # Clear summary
-    st.rerun() # Refresh the whole page with new jobs
+        result = get_real_jobs_rozee_pk()
+        
+        if result["status"] == "success":
+            st.session_state.jobs = result["data"]
+            st.session_state.page = 'list'
+            st.session_state.selected_job_id = None
+            st.session_state.ai_summary = None
+            st.toast("Live jobs fetched from rozee.pk!", icon="✅")
+            st.rerun()
+        else:
+            st.error(result["message"])
+
+# --- NEW: Button for jobz.pk scraper ---
+if st.sidebar.button("Fetch Live (jobz.pk)", use_container_width=True):
+    with st.spinner("Scraping jobz.pk... This is slow!"):
+        result = get_real_jobs_jobz_pk()
+        
+        if result["status"] == "success":
+            st.session_state.jobs = result["data"]
+            st.session_state.page = 'list'
+            st.session_state.selected_job_id = None
+            st.session_state.ai_summary = None
+            st.toast("Live jobs fetched from jobz.pk!", icon="✅")
+            st.rerun()
+        else:
+            st.error(result["message"])
 
 st.sidebar.divider()
 st.sidebar.header("Filter Jobs")
@@ -477,24 +640,42 @@ elif st.session_state.page == 'detail':
                     st.session_state.ai_summary = summary # Store summary in state
         
         # Display AI summary if it exists in state
-        if st.session_state.ai_summary:
-            st.info(st.session_state.ai_summary)
-            # Clear summary if we navigate away (or it will persist)
-            if st.session_state.get('last_summarized_id') != selected_job['id']:
-                st.session_state.ai_summary = None # Use assignment
-            st.session_state.last_summarized_id = selected_job['id']
+        if st.session_state.ai_summary and st.session_state.get('last_summarized_id') == selected_job['id']:
+             st.info(st.session_state.ai_summary)
         else:
             # Clear summary if it's for a different job
-            if st.session_state.ai_summary:
-                st.session_state.ai_summary = None # Use assignment
-
+            st.session_state.ai_summary = None
+        
+        # Store the ID of the job we just summarized
+        if 'summary' in locals():
+            st.session_state.last_summarized_id = selected_job['id']
 
         st.divider()
         st.markdown(selected_job['description'], unsafe_allow_html=True) # Allow HTML for scraped data
 
     else:
         st.error("Job not found. Returning to list.")
-        navigate_to_list()
+        st.session_state.page = 'list'
+        st.session_state.selected_job_id = None
+        st.rerun()
+
+# --- UPDATED: Job Sources Page (Reads from .txt file) ---
+elif st.session_state.page == 'sources':
+    st.title("Our Job Sources")
+    st.markdown("This is the full list of job portals we (simulately) scrape, loaded directly from `job_links.txt`.")
+    st.info("The 'Live Scraping Demos' in the sidebar use real, but brittle, scrapers for demonstration.")
+    
+    links = get_links_from_txt() # Call the new function
+    
+    if links:
+        st.markdown(f"**Found {len(links)} total links.**")
+        
+        # Create a simple, scrollable text area for the links
+        links_text = "\n".join(links)
+        st.text_area("Source Links", links_text, height=400)
+    else:
+        st.error("No links were loaded. Make sure `job_links.txt` is in the same folder as `app.py`.")
+
 
 # --- AI Chatbot (Replaces Chatbot.tsx) ---
 # Placed in the sidebar to be "available on every page"
