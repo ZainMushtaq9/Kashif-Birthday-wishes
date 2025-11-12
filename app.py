@@ -1,708 +1,490 @@
 import streamlit as st
 import google.generativeai as genai
-import time
 import json
+import os
+import re
 from datetime import datetime
-from textwrap import dedent
-import requests
 from bs4 import BeautifulSoup
-import uuid # To create unique IDs for scraped items
-import re # <-- Import regular expressions
 
 # --- Configuration ---
-st.set_page_config(
-    page_title="Pak Job Finder",
-    page_icon="🇵🇰",
-    layout="wide"
-)
+PAGE_TITLE = "Pak Job Finder"
+PAGE_ICON = "🇵🇰"
 
-# --- Mock Data (UPDATED) ---
-def get_mock_jobs():
+# --- Page Setup ---
+st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="wide")
+
+st.title(f"{PAGE_ICON} Pak Job Finder")
+st.markdown("Your AI-powered guide to jobs in Pakistan and beyond.")
+
+# --- Gemini API Key Management ---
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
+
+if not st.session_state.api_key:
+    try:
+        # Try to get from st.secrets (for deployment)
+        st.session_state.api_key = st.secrets["GEMINI_API_KEY"]
+    except (KeyError, AttributeError):
+        # Fallback to sidebar input
+        with st.sidebar:
+            st.warning("Please add your Gemini API Key to proceed.")
+            st.session_state.api_key = st.text_input("Enter your Gemini API Key:", type="password", key="api_key_input")
+
+if st.session_state.api_key:
+    try:
+        genai.configure(api_key=st.session_state.api_key)
+    except Exception as e:
+        st.error(f"Failed to configure Gemini API: {e}")
+        st.stop()
+else:
+    st.info("Please enter your Gemini API Key in the sidebar to enable AI features.")
+    # Stop execution if no API key is provided, but allow viewing sources
+    if 'page' in st.session_state and st.session_state.page != "View Job Sources":
+        st.stop()
+
+
+# --- Utility Functions ---
+
+def safe_html(html_content):
+    """Render HTML content safely in Streamlit."""
+    if not html_content:
+        return
+    # Use BeautifulSoup to parse and clean the HTML
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    # Remove script and style tags
+    for script_or_style in soup(["script", "style"]):
+        script_or_style.decompose()
+        
+    # Convert to string and display as markdown (which Streamlit sanitizes)
+    # Using 'unsafe_allow_html=True' is necessary for rendering, 
+    # but we've reduced risk by stripping scripts/styles.
+    st.markdown(soup.prettify(), unsafe_allow_html=True)
+
+def get_gemini_response(prompt_text, job_context=None, is_json=False):
     """
-    Simulates fetching jobs from a data source.
-    UPDATED: Now includes more diverse examples based on the provided PDF lists.
+    Calls the Gemini API to get a response.
+    
+    Args:
+        prompt_text (str): The main user prompt.
+        job_context (str): Optional. A string (e.g., JSON) of all jobs for context.
+        is_json (bool): Optional. Whether to ask for a JSON response.
     """
-    return [
-        {
-            "id": "j1",
-            "title": "Senior Python Developer",
-            "organization": "Tech Solutions Ltd.",
-            "location": "Karachi",
-            "category": "IT",
-            "source": "rozee.pk",
-            "url": "https://www.rozee.pk",
-            "posted_date": "2025-11-10",
-            "description": dedent("""
-                **Job Description:**
-                We are looking for an experienced Senior Python Developer to join our dynamic team. The ideal candidate will be responsible for developing, testing, and maintaining high-quality software solutions. You will work on a variety of projects, from backend services to data processing pipelines.
+    if not st.session_state.api_key:
+        return "Please provide a Gemini API Key to use this feature."
 
-                **Responsibilities:**
-                - Write reusable, testable, and efficient code.
-                - Design and implement low-latency, high-availability, and performant applications.
-                - Integrate user-facing elements developed by front-end developers with server-side logic.
-                - Implement security and data protection solutions.
-                - Optimize applications for maximum speed and scalability.
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash-preview-09-2025')
+        
+        # Combine prompt and context if provided
+        if job_context:
+            full_prompt = f"{prompt_text}\n\nHere is the full list of available jobs:\n{job_context}"
+        else:
+            full_prompt = prompt_text
 
-                **Qualifications:**
-                - 5+ years of experience with Python.
-                - Strong understanding of frameworks like Django or Flask.
-                - Experience with databases (e.g., PostgreSQL, MySQL, MongoDB).
-                - Familiarity with front-end technologies (e.g., React, Vue.js) is a plus.
-                - Excellent problem-solving skills and attention to detail.
-            """)
-        },
-        {
-            "id": "j2",
-            "title": "Assistant Director (IT)",
-            "organization": "Federal Public Service Commission (FPSC)",
-            "location": "Islamabad",
-            "category": "Government",
-            "source": "fpsc.gov.pk",
-            "url": "https://www.fpsc.gov.pk",
-            "posted_date": "2025-11-08",
-            "description": dedent("""
-                **Case No. F.4-150/2025-R (11/2025)**
-                **Position:** Assistant Director (IT) (BS-17)
-                **Department:** Ministry of Information Technology & Telecommunication
+        # Configure for JSON output if requested
+        generation_config = {}
+        if is_json:
+            generation_config["response_mime_type"] = "application/json"
 
-                **Job Duties:**
-                - To assist in the formulation and implementation of IT policies.
-                - Management of network infrastructure and data centers.
-                - Oversee cybersecurity protocols and ensure data integrity.
-                - Liaise with other government departments for IT-related projects.
+        response = model.generate_content(
+            full_prompt,
+            generation_config=generation_config
+        )
+        return response.text
+    except Exception as e:
+        st.error(f"Gemini API error: {e}")
+        return f"Error: Could not get response from AI. {e}"
 
-                **Qualifications:**
-                - Master's Degree in Computer Science, IT, or equivalent from a recognized university.
-                - OR Bachelor's Degree in Engineering (Software, IT, Computer) from a recognized university.
-                - Minimum 3 years of post-qualification experience in IT infrastructure management.
-                - Age Limit: 22-30 years plus five (5) years general relaxation in upper age limit.
-            """)
-        },
-        {
-            "id": "j3",
-            "title": "Registered Nurse (RN)",
-            "organization": "Aga Khan University Hospital",
-            "location": "Karachi",
-            "category": "Healthcare",
-            "source": "jang.com.pk",
-            "url": "https://www.jang.com.pk/jobs",
-            "posted_date": "2025-11-11",
-            "description": dedent("""
-                **Join Our Team of Compassionate Professionals!**
-                Aga Khan University Hospital (AKUH) is seeking qualified and dedicated Registered Nurses to join our team. We are committed to providing the highest quality of patient care.
+def clean_text(text):
+    """Basic text cleaning for search."""
+    if not text:
+        return ""
+    return text.lower().strip()
 
-                **Responsibilities:**
-                - Provide direct patient care, including assessment, planning, implementation, and evaluation of patient needs.
-                - Administer medications and treatments as prescribed by physicians.
-                - Collaborate with healthcare team members to provide comprehensive care.
-                - Maintain accurate and detailed patient records.
-                - Educate patients and their families on health management and disease prevention.
+# --- Data Loading ---
 
-                **Requirements:**
-                - BScN or Diploma in General Nursing.
-                - Valid registration with the Pakistan Nursing Council (PNC).
-                - Minimum 2 years of clinical experience preferred.
-                - Excellent communication and interpersonal skills.
-                - Ability to work in a fast-paced environment.
-            """)
-        },
-        {
-            "id": "j4",
-            "title": "Remote React Developer",
-            "organization": "Startup Co.",
-            "location": "Remote",
-            "category": "IT",
-            "source": "linkedin.com",
-            "url": "https://www.linkedin.com/jobs",
-            "posted_date": "2025-11-12",
-            "description": dedent("""
-                **About Us:**
-                We are a fast-growing tech startup building the next generation of productivity tools. We are a fully remote team spread across the globe.
+@st.cache_data(ttl=600)  # Cache for 10 minutes
+def load_data(filepath="jobs.json"):
+    """Loads job data from the JSON file produced by Scrapy."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            jobs = json.load(f)
+        
+        # Add a 'search_text' field for easier filtering
+        for job in jobs:
+            job['search_text'] = (
+                f"{clean_text(job.get('title'))} "
+                f"{clean_text(job.get('organization'))} "
+                f"{clean_text(job.get('description'))}"
+            )
+        
+        # Get last modified time
+        last_mod_time = os.path.getmtime(filepath)
+        last_updated = datetime.fromtimestamp(last_mod_time).strftime('%Y-%m-%d %I:%M %p')
+        return jobs, last_updated
+    except FileNotFoundError:
+        return None, None
+    except json.JSONDecodeError:
+        st.error(f"Error: The file '{filepath}' is corrupted or empty.")
+        return None, None
+    except Exception as e:
+        st.error(f"An error occurred while loading '{filepath}': {e}")
+        return None, None
 
-                **The Role:**
-                We are seeking a talented React Developer to build and maintain our user-facing applications. You will work closely with our designers and backend engineers to create a seamless and intuitive user experience.
+# --- Main App Logic ---
 
-                **What You'll Do:**
-                - Develop new user-facing features using React.js.
-                - Build reusable components and front-end libraries for future use.
-                - Translate designs and wireframes into high-quality code.
-                - Optimize components for maximum performance across a vast array of web-capable devices and browsers.
+# Initialize session state variables
+if "jobs" not in st.session_state:
+    st.session_state.jobs = []
+    st.session_state.last_updated = "Never"
+    
+if "page" not in st.session_state:
+    st.session_state.page = "List"
+    
+if "selected_job_id" not in st.session_state:
+    st.session_state.selected_job_id = None
+    
+if "saved_jobs" not in st.session_state:
+    st.session_state.saved_jobs = {} # Store as a dict for quick lookup: {id: job_data}
 
-                **What We're Looking For:**
-                - 3+ years of professional experience with React.js.
-                - Strong proficiency in JavaScript, including DOM manipulation and the JavaScript object model.
-                - Familiarity with modern front-end build pipelines and tools (e.g., Webpack, Babel, NPM).
-                - Experience with state management libraries (e.g., Redux, Zustand).
-                - A passion for remote work and asynchronous communication.
-            """)
-        },
-        {
-            "id": "j5",
-            "title": "Marketing Manager",
-            "organization": "FMCG Giant",
-            "location": "Lahore",
-            "category": "Marketing",
-            "source": "rozee.pk",
-            "url": "https://www.rozee.pk",
-            "posted_date": "2025-11-09",
-            "description": dedent("""
-                **Job Summary:**
-                We are seeking an innovative Marketing Manager to lead our brand strategy for a key product line. You will be responsible for developing and executing marketing campaigns that drive brand awareness, engagement, and sales.
-
-                **Key Responsibilities:**
-                - Develop and implement comprehensive marketing plans and strategies.
-                - Conduct market research to identify trends and opportunities.
-                - Manage the marketing budget and allocate resources effectively.
-                - Oversee digital marketing efforts, including social media, SEO/SEM, and email marketing.
-                - Collaborate with sales and product development teams.
-
-                **Qualifications:**
-                - Bachelor's degree in Marketing, Business, or related field (MBA preferred).
-                - 5+ years of brand management or marketing experience in the FMCG sector.
-                - Proven track of successful marketing campaigns.
-                - Strong analytical and leadership skills.
-            """)
-        },
-        {
-            "id": "j6",
-            "title": "Lecturer in English (BPS-18)",
-            "organization": "Punjab Public Service Commission (PPSC)",
-            "location": "Lahore",
-            "category": "Government",
-            "source": "ppsc.gop.pk",
-            "url": "https://www.ppsc.gop.pk",
-            "posted_date": "2025-11-07",
-            "description": dedent("""
-                **Case No. 42-RF/2025**
-                **Position:** Lecturer in English (Female) (BPS-18)
-                **Department:** Punjab Higher Education Department
-                **Qualifications:**
-                - Master's Degree (at least 2nd Division) in English.
-                - OR Equivalent qualification from a recognized university.
-                **Note:** Candidates must pass a written examination and interview.
-            """)
-        },
-        {
-            "id": "j7",
-            "title": "Finance Manager",
-            "organization": "A Leading Multinational",
-            "location": "Dubai, UAE",
-            "category": "Finance",
-            "source": "gulftalent.com",
-            "url": "https://www.gulftalent.com",
-            "posted_date": "2025-11-05",
-            "description": dedent("""
-                **Role:**
-                Our client, a leading multinational corporation, is looking to hire a Finance Manager to be based in their Dubai regional headquarters. The candidate will be responsible for overseeing all financial operations, managing budgets, and providing strategic financial guidance.
-
-                **Requirements:**
-                - Bachelor's degree in Finance or Accounting.
-                - Professional certification (e.g., CPA, ACCA, CMA) is highly preferred.
-                - 7-10 years of experience in a senior financial role.
-                - Experience in the GCC region is a strong plus.
-                - Strong knowledge of IFRS.
-            """)
-        },
-        {
-            "id": "j8",
-            "title": "Content Writer - Urdu",
-            "organization": "Digital Media Group",
-            "location": "Karachi",
-            "category": "Media",
-            "source": "dawn.com/jobs",
-            "url": "https://www.dawn.com/jobs",
-            "posted_date": "2025-11-12",
-            "description": dedent("""
-                **Job Opening: Content Writer (Urdu)**
-                A reputable digital media group requires a Content Writer for its Urdu news portal.
-                - Candidate must have excellent Urdu writing, typing, and editing skills.
-                - Must be aware of current affairs, social media trends.
-                - Minimum 2 years of experience in a similar role.
-                - Location: Karachi
-                - Send your CV and work samples to [email protected]
-            """)
-        },
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = [
+        {"role": "assistant", "content": "Welcome! Ask me to find jobs, e.g., 'Find me IT jobs in Karachi' or 'Are there any remote developer jobs?'"}
     ]
 
-# --- NEW: Job Sources Function (Reads from .txt file) ---
-@st.cache_data # Cache this file read
-def get_links_from_txt(file_path="job_links.txt"):
-    """Reads a .txt file and returns a list of links."""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            links = [line.strip() for line in f if line.strip()]
-        return links
-    except FileNotFoundError:
-        st.error(f"Error: {file_path} not found.")
-        return []
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-        return []
-
-
-# --- Scraping Function 1 (rozee.pk) ---
-@st.cache_data(ttl=600) # Cache for 10 minutes to avoid re-scraping
-def get_real_jobs_rozee_pk():
-    """
-    Scrapes rozee.pk using Requests and BeautifulSoup.
-    Returns a dictionary: {"status": "success", "data": []} or {"status": "error", "message": "..."}
-    """
-    scraped_jobs = []
-    try:
-        url = "https://www.rozee.pk/search-jobs-in-pakistan"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status() # Raise error for bad responses
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # --- IMPORTANT ---
-        # These selectors are *examples* based on the HTML of rozee.pk
-        # at the time of writing. They WILL break.
-        job_cards = soup.find_all("div", class_=["job", "job-c"]) # Find all job card containers
-
-        for card in job_cards:
-            title_element = card.find("h2")
-            org_element = card.find("div", class_="c-name")
-            loc_element = card.find("div", class_="j-loc")
-            
-            if title_element and org_element and loc_element:
-                job_url = title_element.find("a")["href"] if title_element.find("a") else "https://www.rozee.pk"
-                job = {
-                    "id": str(uuid.uuid4()), # Generate a unique ID
-                    "title": title_element.get_text(strip=True),
-                    "organization": org_element.get_text(strip=True),
-                    "location": loc_element.get_text(strip=True),
-                    "category": "Scraped", # Category is hard to guess, hardcoding
-                    "source": "rozee.pk (Live)",
-                    "url": job_url,
-                    "posted_date": datetime.now().strftime('%Y-%m-%d'),
-                    "description": f"This is a live-scraped job. Full description available at the source URL. {title_element.get_text(strip=True)} at {org_element.get_text(strip=True)}."
-                }
-                scraped_jobs.append(job)
-
-        if not scraped_jobs:
-            return {"status": "error", "message": "Could not find any jobs with the current selectors (rozee.pk). The website's HTML has likely changed."}
-            
-        return {"status": "success", "data": scraped_jobs}
-
-    except requests.exceptions.RequestException as e:
-        return {"status": "error", "message": f"Error fetching data (rozee.pk): {e}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Error parsing data (rozee.pk): {e}. The website's HTML has likely changed."}
-
-# --- NEW: Scraping Function 2 (jobz.pk) ---
-@st.cache_data(ttl=600) # Cache for 10 minutes
-def get_real_jobs_jobz_pk():
-    """
-    Scrapes jobz.pk using Requests and BeautifulSoup.
-    Returns a dictionary: {"status": "success", "data": []} or {"status": "error", "message": "..."}
-    """
-    scraped_jobs = []
-    try:
-        url = "https://www.jobz.pk/"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # --- IMPORTANT ---
-        # These selectors are *guesses* based on the HTML of jobz.pk.
-        # They are very likely to break when the site's HTML changes.
-        job_cards = soup.find_all("div", class_="job")
-
-        for card in job_cards:
-            title_element = card.find("h2")
-            p_elements = card.find_all("p")
-            
-            if title_element and len(p_elements) > 0:
-                title_link = title_element.find("a")
-                if not title_link:
-                    continue
-
-                title = title_link.get_text(strip=True)
-                job_url = title_link.get("href", "https://www.jobz.pk")
-                
-                # Guessing company and location from <p> tags
-                organization = p_elements[0].find("strong").get_text(strip=True) if p_elements[0].find("strong") else "N/A"
-                location = p_elements[0].find_all("strong")[1].get_text(strip=True) if len(p_elements[0].find_all("strong")) > 1 else "N/A"
-                
-                job = {
-                    "id": str(uuid.uuid4()),
-                    "title": title,
-                    "organization": organization,
-                    "location": location,
-                    "category": "Scraped",
-                    "source": "jobz.pk (Live)",
-                    "url": job_url,
-                    "posted_date": datetime.now().strftime('%Y-%m-%d'),
-                    "description": f"This is a live-scraped job from jobz.pk. Full description available at the source URL. {title} at {organization}."
-                }
-                scraped_jobs.append(job)
-
-        if not scraped_jobs:
-            return {"status": "error", "message": "Could not find any jobs with the current selectors (jobz.pk). The website's HTML has likely changed."}
-        
-        return {"status": "success", "data": scraped_jobs}
-
-    except requests.exceptions.RequestException as e:
-        return {"status": "error", "message": f"Error fetching data (jobz.pk): {e}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Error parsing data (jobz.pk): {e}. The website's HTML has likely changed."}
-
-
-# --- Gemini API Service (Replaces geminiService.ts) ---
-
-def get_gemini_model(api_key):
-    """Initializes and returns a Gemini model."""
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash-preview-09-2025')
-        return model
-    except Exception as e:
-        st.error(f"Error initializing Gemini model: {e}")
-        return None
-
-def summarize_job_description(api_key, description):
-    """Calls Gemini API to summarize a job description."""
-    model = get_gemini_model(api_key)
-    if not model:
-        return "Error: Could not initialize AI model."
-
-    prompt = dedent(f"""
-        Please summarize the following job description for a job seeker. 
-        Focus on the key responsibilities and qualifications. 
-        Format the output as 3-4 concise bullet points.
-
-        **Job Description:**
-        {description}
-    """)
-    
-    try:
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        return f"Error generating summary: {e}"
-
-def get_chatbot_response(api_key, chat_history, all_jobs, user_query):
-    """Calls Gemini API for the chatbot, providing job list as context."""
-    model = get_gemini_model(api_key)
-    if not model:
-        return "Error: Could not initialize AI model."
-
-    # Convert all jobs to a JSON string to pass as context
-    jobs_context = json.dumps(all_jobs)
-
-    # System instruction to guide the model
-    system_instruction = dedent(f"""
-        You are an AI Job Assistant. Your goal is to answer the user's questions about available jobs.
-        You MUST base your answers ONLY on the following list of available jobs provided in JSON format.
-        Do not make up jobs or information. If no job matches the user's request, say so.
-        Be friendly and helpful.
-
-        **Available Jobs:**
-        {jobs_context}
-    """)
-    
-    # Format chat history for the API
-    messages = [{"role": "user" if msg["role"] == "user" else "model", "parts": [msg["content"]]} for msg in chat_history]
-
-    try:
-        # Start a chat with the system instruction
-        chat = model.start_chat(history=messages)
-        response = chat.send_message(user_query, system_instruction=system_instruction)
-        return response.text
-    except Exception as e:
-        return f"Error getting chatbot response: {e}"
-
-# --- Session State Initialization (Replaces React Hooks) ---
-
-if 'page' not in st.session_state:
-    st.session_state.page = 'list'  # 'list', 'detail', 'saved', or 'sources'
-if 'selected_job_id' not in st.session_state:
-    st.session_state.selected_job_id = None
-if 'saved_jobs' not in st.session_state:
-    st.session_state.saved_jobs = []  # Replaces localStorage
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'jobs' not in st.session_state:
-    # Fetch jobs once and store in session state
-    st.session_state.jobs = get_mock_jobs()
-if 'ai_summary' not in st.session_state:
-    st.session_state.ai_summary = None
-
-# --- API Key Management ---
-api_key = ""
-try:
-    # Try to get API key from Streamlit secrets
-    api_key = st.secrets["GEMINI_API_KEY"]
-except (FileNotFoundError, KeyError):
-    # If not found, ask user in the sidebar
-    st.sidebar.warning("Please add your Gemini API Key to proceed.")
-    api_key = st.sidebar.text_input("Enter your Gemini API Key:", type="password")
-
-if not api_key:
-    st.error("A Gemini API Key is required to use the AI features.")
-
-# --- Helper Functions (for navigation and actions) ---
-
-def navigate_to_detail(job_id):
-    """Callback to switch to the detail view."""
-    st.session_state.page = 'detail'
-    st.session_state.selected_job_id = job_id
-
-def navigate_to_list():
-    """Callback to switch to the list view."""
-    st.session_state.page = 'list'
-    st.session_state.selected_job_id = None
-    st.session_state.ai_summary = None # Clear summary on nav
-
-def navigate_to_saved():
-    """Callback to switch to the saved jobs view."""
-    st.session_state.page = 'saved'
-    st.session_state.selected_job_id = None
-
-# --- NEW: Navigation for Job Sources page ---
-def navigate_to_sources():
-    """Callback to switch to the job sources view."""
-    st.session_state.page = 'sources'
-    st.session_state.selected_job_id = None
-
-def toggle_save_job(job_id):
-    """Callback to save or unsave a job."""
-    if job_id in st.session_state.saved_jobs:
-        st.session_state.saved_jobs.remove(job_id)
+# Load data only once
+if not st.session_state.jobs:
+    jobs, last_updated = load_data()
+    if jobs:
+        st.session_state.jobs = jobs
+        st.session_state.last_updated = last_updated
     else:
-        st.session_state.saved_jobs.append(job_id)
-
-# --- Sidebar (Replaces SearchBar.tsx) ---
-st.sidebar.title("🇵🇰 Pak Job Finder")
-st.sidebar.divider()
-
-# Navigation
-st.sidebar.button("Mock Job List", on_click=navigate_to_list, use_container_width=True)
-saved_job_count = len(st.session_state.saved_jobs)
-st.sidebar.button(f"Saved Jobs ({saved_job_count})", on_click=navigate_to_saved, use_container_width=True)
-st.sidebar.button("View Job Sources", on_click=navigate_to_sources, use_container_width=True) # NEW BUTTON
-
-st.sidebar.divider()
-st.sidebar.subheader("Live Scraping Demos")
-
-# --- UPDATED: Button logic for multiple scrapers ---
-if st.sidebar.button("Fetch Live (rozee.pk)", use_container_width=True):
-    with st.spinner("Scraping rozee.pk... This is slow!"):
-        result = get_real_jobs_rozee_pk()
-        
-        if result["status"] == "success":
-            st.session_state.jobs = result["data"]
-            st.session_state.page = 'list'
-            st.session_state.selected_job_id = None
-            st.session_state.ai_summary = None
-            st.toast("Live jobs fetched from rozee.pk!", icon="✅")
-            st.rerun()
-        else:
-            st.error(result["message"])
-
-# --- NEW: Button for jobz.pk scraper ---
-if st.sidebar.button("Fetch Live (jobz.pk)", use_container_width=True):
-    with st.spinner("Scraping jobz.pk... This is slow!"):
-        result = get_real_jobs_jobz_pk()
-        
-        if result["status"] == "success":
-            st.session_state.jobs = result["data"]
-            st.session_state.page = 'list'
-            st.session_state.selected_job_id = None
-            st.session_state.ai_summary = None
-            st.toast("Live jobs fetched from jobz.pk!", icon="✅")
-            st.rerun()
-        else:
-            st.error(result["message"])
-
-st.sidebar.divider()
-st.sidebar.header("Filter Jobs")
-
-# Get unique filter options from the job data
-all_jobs = st.session_state.jobs
-locations = sorted(list(set([job['location'] for job in all_jobs])))
-categories = sorted(list(set([job['category'] for job in all_jobs])))
-sources = sorted(list(set([job['source'] for job in all_jobs])))
-
-# Create filter widgets
-keyword = st.sidebar.text_input("Keyword Search", placeholder="e.g., Python, Manager")
-location = st.sidebar.selectbox("Location", ["All"] + locations)
-category = st.sidebar.selectbox("Category", ["All"] + categories)
-source = st.sidebar.selectbox("Source", ["All"] + sources)
+        st.error("Could not load job data from 'jobs.json'.")
+        st.info("""
+            This app reads data from `jobs.json`.
+            
+            Please run your Scrapy project (`job_scraper_project`) first to generate this file.
+            
+            **Example commands:**
+            ```bash
+            cd job_scraper_project
+            scrapy crawl rozee
+            scrapy crawl jobz
+            scrapy crawl dawn
+            ```
+            
+            After running your spiders, refresh this page.
+        """)
+        # Allow viewing sources even if no data
+        st.session_state.page = "View Job Sources"
 
 
-# --- Main App Body (View Controller) ---
+# --- Page Navigation ---
 
-if st.session_state.page in ['list', 'saved']:
+def set_page(page_name, job_id=None):
+    st.session_state.page = page_name
+    if job_id:
+        st.session_state.selected_job_id = job_id
+
+# --- Sidebar ---
+with st.sidebar:
+    st.button("🏠 Home (Job Listings)", on_click=set_page, args=("List",), use_container_width=True, type="primary" if st.session_state.page == "List" else "secondary")
     
-    # --- Job List View (Replaces JobCard.tsx grid) ---
+    saved_count = len(st.session_state.saved_jobs)
+    st.button(f"❤️ Saved Jobs ({saved_count})", on_click=set_page, args=("Saved",), use_container_width=True, type="primary" if st.session_state.page == "Saved" else "secondary")
     
-    if st.session_state.page == 'list':
-        st.title("All Job Listings")
-        jobs_to_display = st.session_state.jobs
-    else:
-        st.title("Your Saved Jobs")
-        jobs_to_display = [job for job in st.session_state.jobs if job['id'] in st.session_state.saved_jobs]
+    st.button("🤖 AI Job Assistant", on_click=set_page, args=("Chat",), use_container_width=True, type="primary" if st.session_state.page == "Chat" else "secondary")
 
-    # Display simulated "Last Updated" timestamp
-    st.markdown(f"Last Updated: {datetime.now().strftime('%Y-%m-%d %I:%M %p')}")
+    st.button("📜 View Job Sources", on_click=set_page, args=("View Job Sources",), use_container_width=True, type="primary" if st.session_state.page == "View Job Sources" else "secondary")
 
-    # --- Filtering Logic ---
-    filtered_jobs = jobs_to_display
-
-    if keyword:
-        filtered_jobs = [job for job in filtered_jobs if keyword.lower() in job['title'].lower() or keyword.lower() in job['description'].lower()]
-    if location != "All":
-        filtered_jobs = [job for job in filtered_jobs if job['location'] == location]
-    if category != "All":
-        filtered_jobs = [job for job in filtered_jobs if job['category'] == category]
-    if source != "All":
-        filtered_jobs = [job for job in filtered_jobs if job['source'] == source]
-
-    # --- Loading Simulation (Replaces JobListingsLoading.tsx) ---
-    if st.session_state.page == 'list' and st.session_state.jobs == get_mock_jobs(): # Only show loading spinner on mock list
-        with st.spinner("Simulating fetch of new job data..."):
-            time.sleep(1) # Deliberate 1-second delay
-
-    # --- Job Grid Display ---
-    st.subheader(f"Showing {len(filtered_jobs)} jobs")
     st.divider()
-
-    if not filtered_jobs:
-        st.info("No jobs found matching your criteria.")
-    else:
-        # Create a grid of 3 columns
-        cols = st.columns(3)
-        for i, job in enumerate(filtered_jobs):
-            col = cols[i % 3]
-            with col:
-                # Use a container for each "Job Card"
-                with st.container(border=True):
-                    st.subheader(job['title'])
-                    st.markdown(f"**{job['organization']}**")
-                    st.markdown(f"📍 {job['location']} | 📁 {job['category']}")
-                    st.caption(f"Source: {job['source']} | Posted: {job['posted_date']}")
-                    st.button(
-                        "View Details", 
-                        key=f"view_{job['id']}", 
-                        on_click=navigate_to_detail, 
-                        args=(job['id'],),
-                        use_container_width=True
-                    )
-
-elif st.session_state.page == 'detail':
     
-    # --- Job Detail View (Replaces JobDetail.tsx) ---
+    # --- Filters (Only show on List page) ---
+    if st.session_state.page == "List" and st.session_state.jobs:
+        st.header("🔍 Filter Jobs")
+        
+        # Get unique values for filters
+        all_locations = sorted(list(set(j.get('location', 'N/A') for j in st.session_state.jobs if j.get('location'))))
+        all_categories = sorted(list(set(j.get('category', 'N/A') for j in st.session_state.jobs if j.get('category'))))
+        all_sources = sorted(list(set(j.get('source', 'N/A') for j in st.session_state.jobs if j.get('source'))))
+
+        # Session state for filters
+        if "filters" not in st.session_state:
+            st.session_state.filters = {
+                "keyword": "",
+                "location": "All",
+                "category": "All",
+                "source": "All"
+            }
+
+        st.session_state.filters["keyword"] = st.text_input("Search by Keyword", st.session_state.filters["keyword"])
+        st.session_state.filters["location"] = st.selectbox("Location", ["All"] + all_locations, index=all_locations.index(st.session_state.filters["location"]) + 1 if st.session_state.filters["location"] in all_locations else 0)
+        st.session_state.filters["category"] = st.selectbox("Category", ["All"] + all_categories, index=all_categories.index(st.session_state.filters["category"]) + 1 if st.session_state.filters["category"] in all_categories else 0)
+        st.session_state.filters["source"] = st.selectbox("Source", ["All"] + all_sources, index=all_sources.index(st.session_state.filters["source"]) + 1 if st.session_state.filters["source"] in all_sources else 0)
+
+    st.divider()
+    st.caption(f"Job data last updated:\n{st.session_state.last_updated}")
+
+
+# --- Page: Job Listings (Home) ---
+if st.session_state.page == "List":
+    
+    if not st.session_state.jobs:
+        st.warning("No jobs loaded. See sidebar for instructions.")
+    else:
+        # Apply filters
+        filtered_jobs = st.session_state.jobs
+
+        f = st.session_state.filters
+        if f["keyword"]:
+            filtered_jobs = [j for j in filtered_jobs if f["keyword"].lower() in j.get('search_text', '')]
+        if f["location"] != "All":
+            filtered_jobs = [j for j in filtered_jobs if j.get('location') == f["location"]]
+        if f["category"] != "All":
+            filtered_jobs = [j for j in filtered_jobs if j.get('category') == f["category"]]
+        if f["source"] != "All":
+            filtered_jobs = [j for j in filtered_jobs if j.get('source') == f["source"]]
+
+        # Display results
+        st.subheader(f"Showing {len(filtered_jobs)} of {len(st.session_state.jobs)} jobs")
+        
+        cols = st.columns([3, 1, 1, 1])
+        with cols[0]:
+            st.markdown("**Job Title**")
+        with cols[1]:
+            st.markdown("**Organization**")
+        with cols[2]:
+            st.markdown("**Location**")
+        with cols[3]:
+            st.markdown("**Source**")
+            
+        st.divider()
+
+        if not filtered_jobs:
+            st.warning("No jobs match your filter criteria.")
+
+        for job in filtered_jobs:
+            cols = st.columns([3, 1, 1, 1])
+            is_saved = job.get('id') in st.session_state.saved_jobs
+            
+            with cols[0]:
+                title_display = f"❤️ {job.get('title')}" if is_saved else job.get('title')
+                st.button(title_display, on_click=set_page, args=("Detail", job.get('id')), key=f"title_{job.get('id')}", use_container_width=True)
+            
+            with cols[1]:
+                st.markdown(job.get('organization', 'N/A'))
+            
+            with cols[2]:
+                st.markdown(job.get('location', 'N/A'))
+            
+            with cols[3]:
+                st.markdown(job.get('source', 'N/A'))
+
+
+# --- Page: Job Detail ---
+elif st.session_state.page == "Detail":
     
     # Find the selected job
-    selected_job = next((job for job in st.session_state.jobs if job['id'] == st.session_state.selected_job_id), None)
-
-    if selected_job:
-        st.button("← Back to List", on_click=navigate_to_list)
-        st.title(selected_job['title'])
-        st.subheader(selected_job['organization'])
-
-        # Key details
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Location", selected_job['location'])
-        c2.metric("Category", selected_job['category'])
-        c3.metric("Source", selected_job['source'])
-
-        # Action Buttons
-        b1, b2, b3 = st.columns(3)
-        b1.link_button("Apply Now ↗", selected_job['url'], use_container_width=True)
+    job = next((j for j in st.session_state.jobs if j.get('id') == st.session_state.selected_job_id), None)
+    
+    if not job:
+        st.error("Job not found or ID is missing.")
+        st.button("← Back to list", on_click=set_page, args=("List",))
+    else:
+        st.button("← Back to list", on_click=set_page, args=("List",))
         
-        # Save/Unsave Button
-        is_saved = selected_job['id'] in st.session_state.saved_jobs
-        save_button_text = "Unsave Job" if is_saved else "Save Job"
-        save_button_type = "secondary" if is_saved else "primary"
-        b2.button(
-            save_button_text, 
-            on_click=toggle_save_job, 
-            args=(selected_job['id'],), 
-            use_container_width=True,
-            type=save_button_type
-        )
+        st.header(job.get('title', 'No Title'))
+        st.subheader(job.get('organization', 'No Organization'))
         
-        # AI Summary Button
-        with b3:
-            if st.button("Summarize with AI ✨", use_container_width=True, disabled=not api_key):
-                with st.spinner("Generating AI summary..."):
-                    summary = summarize_job_description(api_key, selected_job['description'])
-                    st.session_state.ai_summary = summary # Store summary in state
-        
-        # Display AI summary if it exists in state
-        if st.session_state.ai_summary and st.session_state.get('last_summarized_id') == selected_job['id']:
-             st.info(st.session_state.ai_summary)
+        # Save/Unsave button
+        job_id = job.get('id')
+        if job_id in st.session_state.saved_jobs:
+            if st.button("❤️ Unsave Job", use_container_width=True, type="primary"):
+                del st.session_state.saved_jobs[job_id]
+                st.rerun()
         else:
-            # Clear summary if it's for a different job
-            st.session_state.ai_summary = None
+            if st.button("Save Job", use_container_width=True):
+                st.session_state.saved_jobs[job_id] = job
+                st.rerun()
+
+        st.link_button("🚀 Apply Now (External Link)", job.get('url', '#'), use_container_width=True)
         
-        # Store the ID of the job we just summarized
-        if 'summary' in locals():
-            st.session_state.last_summarized_id = selected_job['id']
+        st.divider()
+
+        # Job Info
+        info_cols = st.columns(3)
+        with info_cols[0]:
+            st.markdown(f"**Location:**\n\n{job.get('location', 'N/A')}")
+        with info_cols[1]:
+            st.markdown(f"**Category:**\n\n{job.get('category', 'N/A')}")
+        with info_cols[2]:
+            st.markdown(f"**Source:**\n\n{job.get('source', 'N/A')}")
+            st.markdown(f"**Posted:**\n\n{job.get('posted_date', 'N/A')}")
 
         st.divider()
-        st.markdown(selected_job['description'], unsafe_allow_html=True) # Allow HTML for scraped data
 
-    else:
-        st.error("Job not found. Returning to list.")
-        st.session_state.page = 'list'
-        st.session_state.selected_job_id = None
-        st.rerun()
+        # AI Summary
+        st.subheader("🤖 AI Summary")
+        if "summary_cache" not in st.session_state:
+            st.session_state.summary_cache = {}
 
-# --- UPDATED: Job Sources Page (Reads from .txt file) ---
-elif st.session_state.page == 'sources':
-    st.title("Our Job Sources")
-    st.markdown("This is the full list of job portals we (simulately) scrape, loaded directly from `job_links.txt`.")
-    st.info("The 'Live Scraping Demos' in the sidebar use real, but brittle, scrapers for demonstration.")
-    
-    links = get_links_from_txt() # Call the new function
-    
-    if links:
-        st.markdown(f"**Found {len(links)} total links.**")
+        summary_key = f"summary_{job_id}"
+
+        if summary_key not in st.session_state.summary_cache:
+            if st.button("Generate AI Summary", key="gen_summary", use_container_width=True):
+                with st.spinner("Summarizing job description with Gemini..."):
+                    # Create a clean text version for the prompt
+                    desc_soup = BeautifulSoup(job.get('description', ''), 'html.parser')
+                    clean_desc = desc_soup.get_text(separator=" ").strip()
+                    
+                    prompt = f"""
+                    Please summarize the following job description in 3-5 bullet points.
+                    Focus on:
+                    1. The core role/responsibility.
+                    2. Key qualifications or required skills (e.g., '5+ years Java', 'Master's Degree').
+                    3. Any mentioned benefits or salary.
+                    
+                    Here is the job description:
+                    ---
+                    {clean_desc}
+                    ---
+                    """
+                    summary = get_gemini_response(prompt)
+                    st.session_state.summary_cache[summary_key] = summary
+                    st.rerun()
+        else:
+            st.markdown(st.session_state.summary_cache[summary_key])
+            if st.button("Regenerate Summary", key="regen_summary", use_container_width=True):
+                with st.spinner("Regenerating summary with Gemini..."):
+                    desc_soup = BeautifulSoup(job.get('description', ''), 'html.parser')
+                    clean_desc = desc_soup.get_text(separator=" ").strip()
+                    prompt = f"Please provide a new, slightly different summary (3-5 bullet points) for this job description:\n\n{clean_desc}"
+                    summary = get_gemini_response(prompt)
+                    st.session_state.summary_cache[summary_key] = summary
+                    st.rerun()
+
+        st.divider()
         
-        # Create a simple, scrollable text area for the links
-        links_text = "\n".join(links)
-        st.text_area("Source Links", links_text, height=400)
-    else:
-        st.error("No links were loaded. Make sure `job_links.txt` is in the same folder as `app.py`.")
+        # Full Description
+        st.subheader("Full Job Description")
+        safe_html(job.get('description', 'No description provided.'))
 
 
-# --- AI Chatbot (Replaces Chatbot.tsx) ---
-# Placed in the sidebar to be "available on every page"
-with st.sidebar.expander("🤖 AI Job Assistant", expanded=False):
+# --- Page: Saved Jobs ---
+elif st.session_state.page == "Saved":
+    st.header(f"❤️ My Saved Jobs ({len(st.session_state.saved_jobs)})")
     
+    if not st.session_state.saved_jobs:
+        st.info("You haven't saved any jobs yet. Click 'Save Job' on a job's detail page.")
+    else:
+        st.divider()
+        for job_id, job in st.session_state.saved_jobs.items():
+            cols = st.columns([3, 2, 1])
+            with cols[0]:
+                st.button(job.get('title'), on_click=set_page, args=("Detail", job_id), key=f"saved_{job_id}", use_container_width=True)
+            with cols[1]:
+                st.markdown(job.get('organization', 'N/A'))
+            with cols[2]:
+                st.markdown(job.get('location', 'N/A'))
+
+
+# --- Page: AI Chatbot ---
+elif st.session_state.page == "Chat":
+    st.header("🤖 AI Job Assistant")
+    st.markdown("Ask me to find jobs from the current listings.")
+
     # Display chat history
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-    
-    # Chat input
-    if prompt := st.chat_input("Ask about jobs...", disabled=not api_key):
+
+    # Get user input
+    if prompt := st.chat_input("e.g., 'Find me engineering jobs in Karachi'"):
         # Add user message to history
         st.session_state.chat_history.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-        
-        # Get assistant response
+
+        # Generate assistant response
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = get_chatbot_response(
-                    api_key,
-                    st.session_state.chat_history,
-                    st.session_state.jobs, # Provide all jobs as context
-                    prompt
-                )
-                st.markdown(response)
+            with st.spinner("AI is thinking..."):
+                # Create a simplified JSON of all jobs for context
+                # This is crucial for the AI to answer based on *your* data
+                if not st.session_state.jobs:
+                    st.warning("No job data is loaded. The AI cannot find jobs.")
+                    st.stop()
+                    
+                simplified_jobs = [
+                    {
+                        "id": j.get("id"),
+                        "title": j.get("title"),
+                        "organization": j.get("organization"),
+                        "location": j.get("location"),
+                        "category": j.get("category"),
+                        "source": j.get("source")
+                    } for j in st.session_state.jobs
+                ]
+                jobs_context = json.dumps(simplified_jobs)
+                
+                # Create a system prompt
+                system_prompt = f"""
+                You are a friendly and helpful AI Job Assistant for 'Pak Job Finder'.
+                Your task is to answer user questions *only* based on the list of available jobs provided below.
+                
+                Rules:
+                1.  Analyze the user's prompt: "{prompt}"
+                2.  Scan the 'Here is the full list of available jobs' JSON to find matching jobs.
+                3.  If you find matching jobs, list them clearly with their title, organization, and location.
+                4.  If you don't find any matches, say so politely (e.g., "Sorry, I couldn't find any jobs that match...").
+                5.  Do not make up jobs or information. Stick *only* to the provided list.
+                6.  Be conversational and friendly.
+                """
+                
+                response_text = get_gemini_response(system_prompt, job_context=jobs_context)
+                
+                # Post-process the response to make job titles clickable
+                # This is a simple regex, might need refinement
+                def make_links_clickable(match):
+                    job_title = match.group(1)
+                    # Find the job in our state
+                    found_job = next((j for j in st.session_state.jobs if j.get('title') == job_title), None)
+                    if found_job:
+                        # This part is tricky. Streamlit can't easily embed buttons in chat.
+                        # We'll just list them. A future improvement would be to return JSON.
+                        return f"**{job_title}**" # Make it bold
+                    return job_title
+
+                # This regex is a placeholder. A better way is to ask the AI for JSON.
+                # For now, we'll just display the text.
+                # response_text = re.sub(r"\*\*(.*?)\*\*", make_links_clickable, response_text)
+
+                st.markdown(response_text)
+                st.session_state.chat_history.append({"role": "assistant", "content": response_text})
+
+# --- Page: View Job Sources ---
+elif st.session_state.page == "View Job Sources":
+    st.header("📜 Job Data Sources")
+    st.markdown("This app is designed to aggregate job postings from a wide variety of sources. The data is collected by a separate backend process (your Scrapy project) and read from the `jobs.json` file.")
+    st.markdown("Below is the target list of websites from `job_links.txt` that the backend scraper is designed to crawl.")
+    
+    try:
+        with open("job_links.txt", 'r') as f:
+            links = f.readlines()
         
-        # Add assistant response to history
-        st.session_state.chat_history.append({"role": "assistant", "content": response})
+        st.subheader(f"Target Websites ({len(links)})")
+        
+        # Group links for better display
+        st.markdown("#### Pakistani Portals")
+        pk_links = [link for link in links if ".pk" in link or ".gov.pk" in link or "pakistan" in link]
+        st.text_area("Pakistani Links", "\n".join(pk_links), height=300)
+
+        st.markdown("#### International & Regional Portals")
+        intl_links = [link for link in links if ".pk" not in link and ".gov.pk" not in link and "pakistan" not in link]
+        st.text_area("International Links", "\n".join(intl_links), height=300)
+
+    except FileNotFoundError:
+        st.error("`job_links.txt` not found.")
+        st.info("Please make sure the `job_links.txt` file is in the same directory as `app.py`.")
+    except Exception as e:
+        st.error(f"Could not read `job_links.txt`: {e}")
