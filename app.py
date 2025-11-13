@@ -60,6 +60,10 @@ st.markdown("""
         text-decoration: none;
         display: inline-block;
         margin-top: 0.5rem;
+        cursor: pointer;
+    }
+    .apply-btn:hover {
+        opacity: 0.9;
     }
     .stats-box {
         background: #f8f9fa;
@@ -68,6 +72,15 @@ st.markdown("""
         text-align: center;
         margin-bottom: 1rem;
     }
+    .category-badge {
+        display: inline-block;
+        background: #e8f4f8;
+        color: #2980b9;
+        padding: 0.3rem 0.8rem;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +88,8 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
     <h1>💼 JobFinder Pakistan</h1>
-    <p>Your Gateway to Thousands of Job Opportunities | Updated Daily at 12 AM</p>
+    <p>Your Gateway to Thousands of Job Opportunities | Updated Daily</p>
+    <p style="font-size: 0.9rem; margin-top: 0.5rem;">🔍 Search • 📍 Filter • 📝 Apply</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -84,258 +98,351 @@ if "jobs" not in st.session_state:
     st.session_state["jobs"] = pd.DataFrame()
 if "last_scrape" not in st.session_state:
     st.session_state["last_scrape"] = None
+if "auto_scrape_running" not in st.session_state:
+    st.session_state["auto_scrape_running"] = False
 
-# Auto-scrape check (runs at 12 AM daily)
-def check_and_auto_scrape():
-    """Check if we need to auto-scrape (once daily at midnight)"""
+# Function to check if scraping is needed (background process)
+def should_auto_scrape():
+    """Check if we need to auto-scrape (once daily)"""
     cache_file = "jobs_cache.csv"
     
-    # Check if cache exists and get its modification time
     if os.path.exists(cache_file):
         cache_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
         current_time = datetime.now()
         
-        # If cache is older than 24 hours OR it's past midnight and we haven't scraped today
-        if (current_time - cache_time > timedelta(hours=24)) or \
-           (current_time.hour == 0 and cache_time.date() < current_time.date()):
+        # If cache is older than 24 hours
+        if current_time - cache_time > timedelta(hours=24):
             return True
     else:
         return True
     
     return False
 
-# Sidebar
+# Background auto-scraping (only runs once per day automatically)
+def auto_scrape_background():
+    """Automatically scrape in background if needed"""
+    if should_auto_scrape() and not st.session_state["auto_scrape_running"]:
+        st.session_state["auto_scrape_running"] = True
+        
+        with st.spinner("🔄 Updating job listings in background... Please wait."):
+            try:
+                df = scrape_all_sources(GITHUB_RAW_URL)
+                if not df.empty:
+                    save_jobs_cache(df)
+                    st.session_state["jobs"] = df
+                    st.session_state["last_scrape"] = datetime.now().isoformat()
+                    st.success("✅ Jobs updated successfully!")
+            except Exception as e:
+                st.error(f"❌ Update failed: {str(e)}")
+            
+        st.session_state["auto_scrape_running"] = False
+
+# Sidebar - User Search & Filters ONLY
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=100)
     st.title("🔍 Search & Filter")
     
     # Search box
-    search_query = st.text_input("🔎 Search jobs...", placeholder="e.g., Software Engineer")
+    search_query = st.text_input("🔎 Search jobs...", placeholder="e.g., Software Engineer, Manager")
     
     # Filters
-    st.subheader("Filters")
+    st.markdown("### 📋 Filters")
     
     # Location filter
     locations = ["All Locations", "Karachi", "Lahore", "Islamabad", "Rawalpindi", 
-                 "Faisalabad", "Multan", "Peshawar", "Quetta", "Bahawalpur", "Remote"]
+                 "Faisalabad", "Multan", "Peshawar", "Quetta", "Bahawalpur", 
+                 "Hyderabad", "Gujranwala", "Sialkot", "Remote"]
     location_filter = st.selectbox("📍 Location", locations)
+    
+    # Category filter
+    categories = ["All Categories", "IT & Software", "Management", "Sales & Marketing",
+                  "Finance & Accounting", "Education", "Healthcare", "Engineering", "Other"]
+    category_filter = st.selectbox("📂 Category", categories)
     
     # Job source filter
     if not st.session_state["jobs"].empty:
         sources = ["All Sources"] + sorted(st.session_state["jobs"]["source"].unique().tolist())
-        source_filter = st.selectbox("🌐 Source", sources)
+        source_filter = st.selectbox("🌐 Source Website", sources)
     else:
         source_filter = "All Sources"
     
     # Date filter
     date_options = ["All Time", "Today", "Last 7 Days", "Last 30 Days"]
-    date_filter = st.selectbox("📅 Posted", date_options)
+    date_filter = st.selectbox("📅 Posted Date", date_options)
     
     st.markdown("---")
     
-    # Manual refresh button
-    if st.button("🔄 Refresh Jobs Now", use_container_width=True):
-        with st.spinner("🔍 Fetching latest jobs from 200+ websites... This may take 5-10 minutes."):
-            df = scrape_all_sources(GITHUB_RAW_URL)
-            if not df.empty:
-                save_jobs_cache(df)
-                st.session_state["jobs"] = df
-                st.session_state["last_scrape"] = datetime.now().isoformat()
-                st.success(f"✅ Successfully loaded {len(df)} fresh jobs!")
-                st.rerun()
-            else:
-                st.error("❌ No jobs found. Please check your internet connection.")
+    # Info about updates
+    st.info("💡 **Jobs update automatically daily at 12 AM**\n\nNo action needed from you!")
     
-    st.info("💡 Jobs auto-update daily at 12 AM. Click 'Refresh' to update manually.")
-    
-    # Download options
+    # Download section
     st.markdown("---")
-    st.subheader("📥 Download Results")
+    st.markdown("### 📥 Download")
     
     if not st.session_state["jobs"].empty:
-        csv_data = st.session_state["jobs"].to_csv(index=False)
+        # Get filtered data for download
+        filtered_for_download = st.session_state["jobs"].copy()
+        
+        if search_query:
+            filtered_for_download = filtered_for_download[
+                filtered_for_download["title"].str.contains(search_query, case=False, na=False) |
+                filtered_for_download["company"].str.contains(search_query, case=False, na=False) |
+                filtered_for_download["description"].str.contains(search_query, case=False, na=False)
+            ]
+        
+        if location_filter != "All Locations":
+            filtered_for_download = filtered_for_download[
+                filtered_for_download["location"].str.contains(location_filter, case=False, na=False)
+            ]
+        
+        csv_data = filtered_for_download.to_csv(index=False)
         st.download_button(
-            "📄 Download CSV",
+            "📄 Download Results (CSV)",
             csv_data,
             "jobfinder_pakistan_jobs.csv",
             "text/csv",
-            use_container_width=True
+            use_container_width=True,
+            help="Download filtered job results"
         )
 
-# Main content - Auto-load jobs
+# Load jobs on first visit or auto-scrape if needed
 if st.session_state["jobs"].empty:
     # Try loading from cache first
     cached_df = load_jobs_cache()
     
     if not cached_df.empty:
         st.session_state["jobs"] = cached_df
-        cache_time = datetime.fromtimestamp(os.path.getmtime("jobs_cache.csv"))
-        st.session_state["last_scrape"] = cache_time.isoformat()
-        
-        # Check if we need to auto-scrape
-        if check_and_auto_scrape():
-            st.info("🔄 Jobs are being updated in the background. Showing cached results for now.")
+        if os.path.exists("jobs_cache.csv"):
+            cache_time = datetime.fromtimestamp(os.path.getmtime("jobs_cache.csv"))
+            st.session_state["last_scrape"] = cache_time.isoformat()
     else:
-        # No cache exists - first time setup
-        st.warning("⚠️ No cached jobs found. This is your first time using the portal!")
-        
-        if st.button("🚀 Start Scraping Jobs", type="primary"):
-            with st.spinner("🔍 Scraping jobs from 200+ websites for the first time... This will take 10-15 minutes."):
-                df = scrape_all_sources(GITHUB_RAW_URL)
-                if not df.empty:
-                    save_jobs_cache(df)
-                    st.session_state["jobs"] = df
-                    st.session_state["last_scrape"] = datetime.now().isoformat()
-                    st.success(f"✅ Successfully loaded {len(df)} jobs!")
-                    st.rerun()
-                else:
-                    st.error("❌ Could not fetch jobs. Please try again later.")
-        
-        st.info("👆 Click the button above to start loading jobs from 200+ websites!")
-        st.stop()
+        # First time - scrape automatically
+        st.info("🔄 Loading jobs for the first time... Please wait 10-15 minutes.")
+        auto_scrape_background()
 
-# Display jobs
+# Check if we need to auto-update (background)
+if not st.session_state["jobs"].empty and should_auto_scrape():
+    auto_scrape_background()
+
+# Main Content - Display Jobs
 df = st.session_state["jobs"]
 
 if df.empty:
-    st.warning("⚠️ No jobs available. Please click 'Refresh Jobs Now' in the sidebar.")
+    st.warning("⚠️ No jobs available at the moment. Please check back later.")
+    st.info("📧 Contact us at support@jobfinder.pk if this issue persists.")
+    st.stop()
+
+# Apply filters
+filtered_df = df.copy()
+
+# Search filter
+if search_query:
+    filtered_df = filtered_df[
+        filtered_df["title"].str.contains(search_query, case=False, na=False) |
+        filtered_df["company"].str.contains(search_query, case=False, na=False) |
+        filtered_df["description"].str.contains(search_query, case=False, na=False)
+    ]
+
+# Location filter
+if location_filter != "All Locations":
+    filtered_df = filtered_df[
+        filtered_df["location"].str.contains(location_filter, case=False, na=False)
+    ]
+
+# Category filter (add category column if not exists)
+if "category" not in filtered_df.columns:
+    def categorize_job(title):
+        title = title.lower()
+        if any(word in title for word in ["engineer", "developer", "programmer", "software", "it"]):
+            return "IT & Software"
+        elif any(word in title for word in ["manager", "executive", "director", "head"]):
+            return "Management"
+        elif any(word in title for word in ["marketing", "sales", "business"]):
+            return "Sales & Marketing"
+        elif any(word in title for word in ["accountant", "finance", "audit"]):
+            return "Finance & Accounting"
+        elif any(word in title for word in ["teacher", "professor", "education", "lecturer"]):
+            return "Education"
+        elif any(word in title for word in ["doctor", "nurse", "medical", "health"]):
+            return "Healthcare"
+        elif any(word in title for word in ["civil", "mechanical", "electrical"]):
+            return "Engineering"
+        else:
+            return "Other"
+    
+    filtered_df["category"] = filtered_df["title"].apply(categorize_job)
+
+if category_filter != "All Categories":
+    filtered_df = filtered_df[filtered_df["category"] == category_filter]
+
+# Source filter
+if source_filter != "All Sources":
+    filtered_df = filtered_df[filtered_df["source"] == source_filter]
+
+# Date filter
+if date_filter != "All Time":
+    try:
+        filtered_df["posted_date"] = pd.to_datetime(filtered_df["posted_date"])
+        today = datetime.now()
+        
+        if date_filter == "Today":
+            filtered_df = filtered_df[filtered_df["posted_date"].dt.date == today.date()]
+        elif date_filter == "Last 7 Days":
+            week_ago = today - timedelta(days=7)
+            filtered_df = filtered_df[filtered_df["posted_date"] >= week_ago]
+        elif date_filter == "Last 30 Days":
+            month_ago = today - timedelta(days=30)
+            filtered_df = filtered_df[filtered_df["posted_date"] >= month_ago]
+    except:
+        pass
+
+# Statistics Dashboard
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown(f"""
+    <div class="stats-box">
+        <h2 style="color: #667eea; margin:0;">{len(filtered_df)}</h2>
+        <p style="margin:0; font-size: 0.9rem;">Available Jobs</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    unique_companies = filtered_df["company"].nunique()
+    st.markdown(f"""
+    <div class="stats-box">
+        <h2 style="color: #764ba2; margin:0;">{unique_companies}</h2>
+        <p style="margin:0; font-size: 0.9rem;">Companies Hiring</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    unique_locations = filtered_df["location"].nunique()
+    st.markdown(f"""
+    <div class="stats-box">
+        <h2 style="color: #f093fb; margin:0;">{unique_locations}</h2>
+        <p style="margin:0; font-size: 0.9rem;">Locations</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    if st.session_state["last_scrape"]:
+        last_update = datetime.fromisoformat(st.session_state["last_scrape"])
+        hours_ago = int((datetime.now() - last_update).total_seconds() / 3600)
+        update_text = f"{hours_ago}h ago" if hours_ago < 24 else f"{hours_ago // 24}d ago"
+        st.markdown(f"""
+        <div class="stats-box">
+            <h2 style="color: #4facfe; margin:0;">{update_text}</h2>
+            <p style="margin:0; font-size: 0.9rem;">Last Updated</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+st.markdown("---")
+
+# Display jobs or empty state
+if filtered_df.empty:
+    st.info("🔍 **No jobs match your search criteria.**")
+    st.markdown("""
+    ### 💡 Try these tips:
+    - Remove some filters
+    - Use different keywords
+    - Select "All Locations" or "All Categories"
+    - Check back later for new listings
+    """)
 else:
-    # Apply filters
-    filtered_df = df.copy()
+    # Sort by date (newest first)
+    try:
+        filtered_df["posted_date"] = pd.to_datetime(filtered_df["posted_date"])
+        filtered_df = filtered_df.sort_values("posted_date", ascending=False)
+    except:
+        pass
     
-    # Search filter
-    if search_query:
-        filtered_df = filtered_df[
-            filtered_df["title"].str.contains(search_query, case=False, na=False) |
-            filtered_df["company"].str.contains(search_query, case=False, na=False) |
-            filtered_df["description"].str.contains(search_query, case=False, na=False)
-        ]
+    st.subheader(f"📋 {len(filtered_df)} Jobs Found")
     
-    # Location filter
-    if location_filter != "All Locations":
-        filtered_df = filtered_df[
-            filtered_df["location"].str.contains(location_filter, case=False, na=False)
-        ]
+    # Pagination
+    jobs_per_page = 10
+    total_pages = (len(filtered_df) - 1) // jobs_per_page + 1
     
-    # Source filter
-    if source_filter != "All Sources":
-        filtered_df = filtered_df[filtered_df["source"] == source_filter]
+    if "page" not in st.session_state:
+        st.session_state["page"] = 1
     
-    # Date filter
-    if date_filter != "All Time":
-        try:
-            filtered_df["posted_date"] = pd.to_datetime(filtered_df["posted_date"])
-            today = datetime.now()
-            
-            if date_filter == "Today":
-                filtered_df = filtered_df[filtered_df["posted_date"].dt.date == today.date()]
-            elif date_filter == "Last 7 Days":
-                week_ago = today - timedelta(days=7)
-                filtered_df = filtered_df[filtered_df["posted_date"] >= week_ago]
-            elif date_filter == "Last 30 Days":
-                month_ago = today - timedelta(days=30)
-                filtered_df = filtered_df[filtered_df["posted_date"] >= month_ago]
-        except:
-            pass
-    
-    # Statistics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="stats-box">
-            <h2 style="color: #667eea; margin:0;">{len(filtered_df)}</h2>
-            <p style="margin:0;">Total Jobs</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        unique_companies = filtered_df["company"].nunique()
-        st.markdown(f"""
-        <div class="stats-box">
-            <h2 style="color: #764ba2; margin:0;">{unique_companies}</h2>
-            <p style="margin:0;">Companies</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        unique_locations = filtered_df["location"].nunique()
-        st.markdown(f"""
-        <div class="stats-box">
-            <h2 style="color: #f093fb; margin:0;">{unique_locations}</h2>
-            <p style="margin:0;">Locations</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        if st.session_state["last_scrape"]:
-            last_update = datetime.fromisoformat(st.session_state["last_scrape"])
-            hours_ago = int((datetime.now() - last_update).total_seconds() / 3600)
-            st.markdown(f"""
-            <div class="stats-box">
-                <h2 style="color: #4facfe; margin:0;">{hours_ago}h</h2>
-                <p style="margin:0;">Last Update</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Display jobs
-    if filtered_df.empty:
-        st.info("🔍 No jobs match your filters. Try adjusting your search criteria.")
-    else:
-        st.subheader(f"📋 Showing {len(filtered_df)} Jobs")
-        
-        # Pagination
-        jobs_per_page = 10
-        total_pages = (len(filtered_df) - 1) // jobs_per_page + 1
-        
-        if "page" not in st.session_state:
-            st.session_state["page"] = 1
-        
-        # Pagination controls
+    # Pagination controls at top
+    if total_pages > 1:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             page = st.selectbox(
-                f"Page (Total: {total_pages})",
+                f"📄 Page",
                 range(1, total_pages + 1),
-                index=st.session_state["page"] - 1
+                index=st.session_state["page"] - 1,
+                format_func=lambda x: f"Page {x} of {total_pages}"
             )
             st.session_state["page"] = page
+    else:
+        page = 1
+    
+    # Display current page jobs
+    start_idx = (page - 1) * jobs_per_page
+    end_idx = start_idx + jobs_per_page
+    page_df = filtered_df.iloc[start_idx:end_idx]
+    
+    for idx, job in page_df.iterrows():
+        # Format salary display
+        salary_display = job.get('salary', 'Not specified')
+        if salary_display == 'Not specified':
+            salary_display = "💰 Salary: Negotiable"
+        else:
+            salary_display = f"💰 {salary_display}"
         
-        # Display current page jobs
-        start_idx = (page - 1) * jobs_per_page
-        end_idx = start_idx + jobs_per_page
-        page_df = filtered_df.iloc[start_idx:end_idx]
+        # Get category
+        category = job.get('category', 'Other')
         
-        for _, job in page_df.iterrows():
-            st.markdown(f"""
-            <div class="job-card">
-                <div class="job-title">{job['title']}</div>
-                <div class="job-detail">🏢 <b>{job['company']}</b></div>
-                <div class="job-detail">📍 {job['location']}</div>
-                <div class="job-detail">💰 {job['salary']}</div>
-                <div class="job-detail">📝 {job['description'][:200]}...</div>
-                <div class="job-detail">🌐 Source: {job['source']}</div>
-                <div class="job-detail">📅 Posted: {job['posted_date']}</div>
-                <a href="{job['link']}" target="_blank" class="apply-btn">Apply Now →</a>
+        st.markdown(f"""
+        <div class="job-card">
+            <div class="job-title">{job['title']}</div>
+            <span class="category-badge">{category}</span>
+            <div class="job-detail">🏢 <b>{job['company']}</b></div>
+            <div class="job-detail">📍 {job['location']}</div>
+            <div class="job-detail">{salary_display}</div>
+            <div class="job-detail" style="margin-top: 0.8rem;">📝 {job['description'][:250]}...</div>
+            <div class="job-detail" style="margin-top: 0.5rem; color: #95a5a6;">
+                🌐 Source: {job['source']} | 📅 Posted: {job['posted_date']}
             </div>
-            """, unsafe_allow_html=True)
+            <a href="{job['link']}" target="_blank">
+                <button class="apply-btn">Apply Now →</button>
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Pagination controls at bottom
+    if total_pages > 1:
+        st.markdown("---")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown(f"<p style='text-align: center;'>Page {page} of {total_pages}</p>", unsafe_allow_html=True)
 
-# Footer with monetization
+# Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #7f8c8d; padding: 2rem; background: #f8f9fa; border-radius: 10px;'>
-    <h3 style="color: #2c3e50;">JobFinder Pakistan</h3>
-    <p><b>🎯 Premium Job Portal</b> | 200+ Job Sources | Daily Updates</p>
-    <p>© 2025 All Rights Reserved | Automated Daily Scraping at 12:00 AM</p>
-    <p style="font-size: 0.9rem;">
-        📧 Contact: support@jobfinder.pk | 
-        💼 Advertise: ads@jobfinder.pk | 
-        🌟 Premium Listings Available
+    <h3 style="color: #2c3e50;">🇵🇰 JobFinder Pakistan</h3>
+    <p><b>Pakistan's Leading Job Portal</b></p>
+    <p style="font-size: 0.95rem; margin: 1rem 0;">
+        🎯 200+ Job Sources | 🔄 Daily Updates | 🚀 10,000+ Active Jobs
     </p>
-    <p style="font-size: 0.8rem; color: #95a5a6; margin-top: 1rem;">
-        Helping job seekers find their dream careers in Pakistan 🇵🇰
+    <p style="font-size: 0.9rem; margin: 1rem 0;">
+        📧 <b>Contact:</b> support@jobfinder.pk | 
+        💼 <b>For Companies:</b> hr@jobfinder.pk | 
+        🌟 <b>Premium Listings:</b> ads@jobfinder.pk
+    </p>
+    <div style="margin-top: 1.5rem; padding: 1rem; background: white; border-radius: 8px;">
+        <p style="font-size: 0.85rem; color: #7f8c8d; margin: 0;">
+            <b>For Employers:</b> Post your jobs and reach thousands of qualified candidates.<br>
+            Premium packages available starting from PKR 5,000/month.
+        </p>
+    </div>
+    <p style="font-size: 0.8rem; color: #95a5a6; margin-top: 1.5rem;">
+        © 2025 JobFinder Pakistan. All Rights Reserved.<br>
+        Helping build careers across Pakistan 🚀
     </p>
 </div>
 """, unsafe_allow_html=True)
