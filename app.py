@@ -2,12 +2,13 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+from scraper import scrape_all_sources, save_jobs_cache, load_jobs_cache
 
-# GitHub RAW URL for job links
+# ADMIN PASSWORD - Change this to your own secret password
+ADMIN_PASSWORD = "admin123"  # Change this!
+
+# GitHub RAW URL
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/ZainMushtaq9/Kashif-Birthday-wishes/main/job_links.txt"
-
-# GitHub RAW URL for jobs cache (pre-scraped jobs)
-JOBS_CACHE_URL = "https://raw.githubusercontent.com/ZainMushtaq9/Kashif-Birthday-wishes/main/jobs_cache.csv"
 
 # Page Configuration
 st.set_page_config(
@@ -83,6 +84,13 @@ st.markdown("""
         font-size: 0.85rem;
         margin-right: 0.5rem;
     }
+    .admin-section {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -95,38 +103,96 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Load jobs from GitHub (pre-scraped)
-@st.cache_data(ttl=3600)  # Cache for 1 hour
-def load_jobs_from_github():
-    """Load pre-scraped jobs from GitHub repository"""
-    try:
-        import requests
-        response = requests.get(JOBS_CACHE_URL, timeout=10)
-        response.raise_for_status()
-        
-        from io import StringIO
-        df = pd.read_csv(StringIO(response.text))
-        return df
-    except Exception as e:
-        st.error(f"Could not load jobs: {str(e)}")
-        return pd.DataFrame()
-
 # Initialize session state
 if "jobs" not in st.session_state:
-    with st.spinner("📊 Loading latest jobs..."):
-        st.session_state["jobs"] = load_jobs_from_github()
+    st.session_state["jobs"] = pd.DataFrame()
+if "last_scrape" not in st.session_state:
+    st.session_state["last_scrape"] = None
+if "admin_authenticated" not in st.session_state:
+    st.session_state["admin_authenticated"] = False
+if "show_admin" not in st.session_state:
+    st.session_state["show_admin"] = False
 
-df = st.session_state["jobs"]
+# Load jobs from cache
+def load_initial_jobs():
+    """Load jobs from cache file"""
+    if st.session_state["jobs"].empty:
+        cached_df = load_jobs_cache()
+        if not cached_df.empty:
+            st.session_state["jobs"] = cached_df
+            if os.path.exists("jobs_cache.csv"):
+                cache_time = datetime.fromtimestamp(os.path.getmtime("jobs_cache.csv"))
+                st.session_state["last_scrape"] = cache_time.isoformat()
 
-# Sidebar - Search & Filters
+# Load jobs on startup
+load_initial_jobs()
+
+# Sidebar
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=100)
     st.title("🔍 Search & Filter")
     
-    # Search box
-    search_query = st.text_input("🔎 Search jobs...", placeholder="e.g., Software Engineer, Manager")
+    # Admin Access Toggle
+    if st.checkbox("🔐 Admin Access", key="admin_toggle"):
+        st.session_state["show_admin"] = True
+    else:
+        st.session_state["show_admin"] = False
+        st.session_state["admin_authenticated"] = False
     
-    # Filters
+    # Admin Section
+    if st.session_state["show_admin"]:
+        st.markdown("""
+        <div class="admin-section">
+            <h4 style="margin:0; color:#856404;">👨‍💼 Admin Panel</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if not st.session_state["admin_authenticated"]:
+            admin_pass = st.text_input("Enter Admin Password:", type="password", key="admin_password")
+            if st.button("🔓 Login", use_container_width=True):
+                if admin_pass == ADMIN_PASSWORD:
+                    st.session_state["admin_authenticated"] = True
+                    st.success("✅ Admin authenticated!")
+                    st.rerun()
+                else:
+                    st.error("❌ Wrong password!")
+        else:
+            st.success("✅ Logged in as Admin")
+            
+            # Show cache status
+            if os.path.exists("jobs_cache.csv"):
+                cache_time = datetime.fromtimestamp(os.path.getmtime("jobs_cache.csv"))
+                hours_old = int((datetime.now() - cache_time).total_seconds() / 3600)
+                st.info(f"📊 Cache is {hours_old} hours old")
+            
+            # Update Jobs Button
+            if st.button("🔄 Update Jobs Now", use_container_width=True, type="primary"):
+                with st.spinner("🔍 Scraping 200+ websites... This will take 10-15 minutes. You can close this and come back later."):
+                    try:
+                        df = scrape_all_sources(GITHUB_RAW_URL)
+                        if not df.empty:
+                            save_jobs_cache(df)
+                            st.session_state["jobs"] = df
+                            st.session_state["last_scrape"] = datetime.now().isoformat()
+                            st.success(f"✅ Successfully updated {len(df)} jobs!")
+                            st.balloons()
+                        else:
+                            st.error("❌ No jobs found. Please try again.")
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+            
+            st.warning("⚠️ Scraping takes 10-15 minutes. Users can still browse cached jobs during update.")
+            
+            if st.button("🚪 Logout", use_container_width=True):
+                st.session_state["admin_authenticated"] = False
+                st.rerun()
+            
+            st.markdown("---")
+    
+    # Regular User Search & Filters
+    st.markdown("### 🔍 Search Jobs")
+    search_query = st.text_input("Keywords", placeholder="e.g., Software Engineer")
+    
     st.markdown("### 📋 Filters")
     
     # Location filter
@@ -141,45 +207,53 @@ with st.sidebar:
     category_filter = st.selectbox("📂 Category", categories)
     
     # Job source filter
+    df = st.session_state["jobs"]
     if not df.empty:
         sources = ["All Sources"] + sorted(df["source"].unique().tolist())
-        source_filter = st.selectbox("🌐 Source Website", sources)
+        source_filter = st.selectbox("🌐 Source", sources)
     else:
         source_filter = "All Sources"
     
     st.markdown("---")
     
     # Info
-    st.success("✅ **Jobs Updated Daily**\n\nBrowse thousands of fresh opportunities!")
+    st.info("💡 **Fresh Jobs Daily**\n\nBrowse thousands of opportunities updated regularly!")
     
     # Download
-    st.markdown("---")
-    st.markdown("### 📥 Export Jobs")
-    
     if not df.empty:
+        st.markdown("---")
+        st.markdown("### 📥 Download")
         csv_data = df.to_csv(index=False)
         st.download_button(
-            "📄 Download All Jobs (CSV)",
+            "📄 Download All Jobs",
             csv_data,
-            "jobfinder_pakistan_all_jobs.csv",
+            "jobfinder_jobs.csv",
             "text/csv",
             use_container_width=True
         )
 
-# Check if jobs loaded
+# Main Content
+df = st.session_state["jobs"]
+
+# First time setup - show admin info
 if df.empty:
-    st.error("❌ **Could not load jobs from database.**")
-    st.info("""
-    ### 📧 This might be because:
-    - The jobs database is being updated
-    - Connection issue with GitHub
-    - Cache file not found
+    st.error("❌ **No jobs in database yet!**")
+    st.markdown("""
+    ### 🔧 Initial Setup Required
     
-    **Please contact:** support@jobfinder.pk
+    This is your first time running the portal. To populate jobs:
+    
+    1. Check the **"🔐 Admin Access"** box in the sidebar
+    2. Enter admin password: `admin123`
+    3. Click **"🔄 Update Jobs Now"**
+    4. Wait 10-15 minutes for scraping
+    5. Jobs will appear!
+    
+    **Change the admin password in `app.py` file (line 11) for security!**
     """)
     st.stop()
 
-# Add category column if missing
+# Add category column
 if "category" not in df.columns:
     def categorize_job(title):
         title = str(title).lower()
@@ -205,7 +279,6 @@ if "category" not in df.columns:
 # Apply filters
 filtered_df = df.copy()
 
-# Search filter
 if search_query:
     filtered_df = filtered_df[
         filtered_df["title"].str.contains(search_query, case=False, na=False) |
@@ -213,21 +286,18 @@ if search_query:
         filtered_df["description"].str.contains(search_query, case=False, na=False)
     ]
 
-# Location filter
 if location_filter != "All Locations":
     filtered_df = filtered_df[
         filtered_df["location"].str.contains(location_filter, case=False, na=False)
     ]
 
-# Category filter
 if category_filter != "All Categories":
     filtered_df = filtered_df[filtered_df["category"] == category_filter]
 
-# Source filter
 if source_filter != "All Sources":
     filtered_df = filtered_df[filtered_df["source"] == source_filter]
 
-# Statistics Dashboard
+# Statistics
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -243,7 +313,7 @@ with col2:
     st.markdown(f"""
     <div class="stats-box">
         <h2 style="color: #764ba2; margin:0;">{unique_companies:,}</h2>
-        <p style="margin:0; font-size: 0.9rem;">Companies Hiring</p>
+        <p style="margin:0; font-size: 0.9rem;">Companies</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -257,27 +327,29 @@ with col3:
     """, unsafe_allow_html=True)
 
 with col4:
-    st.markdown(f"""
-    <div class="stats-box">
-        <h2 style="color: #4facfe; margin:0;">24h</h2>
-        <p style="margin:0; font-size: 0.9rem;">Update Cycle</p>
-    </div>
-    """, unsafe_allow_html=True)
+    if st.session_state["last_scrape"]:
+        last_update = datetime.fromisoformat(st.session_state["last_scrape"])
+        hours_ago = int((datetime.now() - last_update).total_seconds() / 3600)
+        update_text = f"{hours_ago}h" if hours_ago < 24 else f"{hours_ago // 24}d"
+        st.markdown(f"""
+        <div class="stats-box">
+            <h2 style="color: #4facfe; margin:0;">{update_text}</h2>
+            <p style="margin:0; font-size: 0.9rem;">Last Update</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # Display jobs
 if filtered_df.empty:
-    st.info("🔍 **No jobs match your search criteria.**")
+    st.info("🔍 **No jobs match your filters.**")
     st.markdown("""
-    ### 💡 Try these tips:
-    - Remove some filters
+    ### 💡 Try:
+    - Remove filters
     - Use different keywords
-    - Select "All Locations" or "All Categories"
-    - Browse all jobs without filters
+    - Select "All Locations"
     """)
 else:
-    # Sort by date
     try:
         filtered_df["posted_date"] = pd.to_datetime(filtered_df["posted_date"])
         filtered_df = filtered_df.sort_values("posted_date", ascending=False)
@@ -293,7 +365,6 @@ else:
     if "page" not in st.session_state:
         st.session_state["page"] = 1
     
-    # Pagination controls
     if total_pages > 1:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
@@ -307,7 +378,6 @@ else:
     else:
         page = 1
     
-    # Display jobs
     start_idx = (page - 1) * jobs_per_page
     end_idx = start_idx + jobs_per_page
     page_df = filtered_df.iloc[start_idx:end_idx]
@@ -338,12 +408,11 @@ else:
         </div>
         """, unsafe_allow_html=True)
     
-    # Bottom pagination
     if total_pages > 1:
         st.markdown("---")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.markdown(f"<p style='text-align: center;'>Showing page {page} of {total_pages}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center;'>Page {page} of {total_pages}</p>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
