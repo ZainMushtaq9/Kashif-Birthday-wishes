@@ -2,10 +2,12 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import os
-from scraper import scrape_all_sources, save_jobs_cache, load_jobs_cache
 
-# GitHub RAW URL - Update this with your actual GitHub username and repo name
+# GitHub RAW URL for job links
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/ZainMushtaq9/Kashif-Birthday-wishes/main/job_links.txt"
+
+# GitHub RAW URL for jobs cache (pre-scraped jobs)
+JOBS_CACHE_URL = "https://raw.githubusercontent.com/ZainMushtaq9/Kashif-Birthday-wishes/main/jobs_cache.csv"
 
 # Page Configuration
 st.set_page_config(
@@ -15,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for professional look
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
@@ -93,51 +95,30 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Load jobs from GitHub (pre-scraped)
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def load_jobs_from_github():
+    """Load pre-scraped jobs from GitHub repository"""
+    try:
+        import requests
+        response = requests.get(JOBS_CACHE_URL, timeout=10)
+        response.raise_for_status()
+        
+        from io import StringIO
+        df = pd.read_csv(StringIO(response.text))
+        return df
+    except Exception as e:
+        st.error(f"Could not load jobs: {str(e)}")
+        return pd.DataFrame()
+
 # Initialize session state
 if "jobs" not in st.session_state:
-    st.session_state["jobs"] = pd.DataFrame()
-if "last_scrape" not in st.session_state:
-    st.session_state["last_scrape"] = None
-if "auto_scrape_running" not in st.session_state:
-    st.session_state["auto_scrape_running"] = False
+    with st.spinner("📊 Loading latest jobs..."):
+        st.session_state["jobs"] = load_jobs_from_github()
 
-# Function to check if scraping is needed (background process)
-def should_auto_scrape():
-    """Check if we need to auto-scrape (once daily)"""
-    cache_file = "jobs_cache.csv"
-    
-    if os.path.exists(cache_file):
-        cache_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
-        current_time = datetime.now()
-        
-        # If cache is older than 24 hours
-        if current_time - cache_time > timedelta(hours=24):
-            return True
-    else:
-        return True
-    
-    return False
+df = st.session_state["jobs"]
 
-# Background auto-scraping (only runs once per day automatically)
-def auto_scrape_background():
-    """Automatically scrape in background if needed"""
-    if should_auto_scrape() and not st.session_state["auto_scrape_running"]:
-        st.session_state["auto_scrape_running"] = True
-        
-        with st.spinner("🔄 Updating job listings in background... Please wait."):
-            try:
-                df = scrape_all_sources(GITHUB_RAW_URL)
-                if not df.empty:
-                    save_jobs_cache(df)
-                    st.session_state["jobs"] = df
-                    st.session_state["last_scrape"] = datetime.now().isoformat()
-                    st.success("✅ Jobs updated successfully!")
-            except Exception as e:
-                st.error(f"❌ Update failed: {str(e)}")
-            
-        st.session_state["auto_scrape_running"] = False
-
-# Sidebar - User Search & Filters ONLY
+# Sidebar - Search & Filters
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=100)
     st.title("🔍 Search & Filter")
@@ -160,77 +141,66 @@ with st.sidebar:
     category_filter = st.selectbox("📂 Category", categories)
     
     # Job source filter
-    if not st.session_state["jobs"].empty:
-        sources = ["All Sources"] + sorted(st.session_state["jobs"]["source"].unique().tolist())
+    if not df.empty:
+        sources = ["All Sources"] + sorted(df["source"].unique().tolist())
         source_filter = st.selectbox("🌐 Source Website", sources)
     else:
         source_filter = "All Sources"
     
-    # Date filter
-    date_options = ["All Time", "Today", "Last 7 Days", "Last 30 Days"]
-    date_filter = st.selectbox("📅 Posted Date", date_options)
-    
     st.markdown("---")
     
-    # Info about updates
-    st.info("💡 **Jobs update automatically daily at 12 AM**\n\nNo action needed from you!")
+    # Info
+    st.success("✅ **Jobs Updated Daily**\n\nBrowse thousands of fresh opportunities!")
     
-    # Download section
+    # Download
     st.markdown("---")
-    st.markdown("### 📥 Download")
+    st.markdown("### 📥 Export Jobs")
     
-    if not st.session_state["jobs"].empty:
-        # Get filtered data for download
-        filtered_for_download = st.session_state["jobs"].copy()
-        
-        if search_query:
-            filtered_for_download = filtered_for_download[
-                filtered_for_download["title"].str.contains(search_query, case=False, na=False) |
-                filtered_for_download["company"].str.contains(search_query, case=False, na=False) |
-                filtered_for_download["description"].str.contains(search_query, case=False, na=False)
-            ]
-        
-        if location_filter != "All Locations":
-            filtered_for_download = filtered_for_download[
-                filtered_for_download["location"].str.contains(location_filter, case=False, na=False)
-            ]
-        
-        csv_data = filtered_for_download.to_csv(index=False)
+    if not df.empty:
+        csv_data = df.to_csv(index=False)
         st.download_button(
-            "📄 Download Results (CSV)",
+            "📄 Download All Jobs (CSV)",
             csv_data,
-            "jobfinder_pakistan_jobs.csv",
+            "jobfinder_pakistan_all_jobs.csv",
             "text/csv",
-            use_container_width=True,
-            help="Download filtered job results"
+            use_container_width=True
         )
 
-# Load jobs on first visit or auto-scrape if needed
-if st.session_state["jobs"].empty:
-    # Try loading from cache first
-    cached_df = load_jobs_cache()
-    
-    if not cached_df.empty:
-        st.session_state["jobs"] = cached_df
-        if os.path.exists("jobs_cache.csv"):
-            cache_time = datetime.fromtimestamp(os.path.getmtime("jobs_cache.csv"))
-            st.session_state["last_scrape"] = cache_time.isoformat()
-    else:
-        # First time - scrape automatically
-        st.info("🔄 Loading jobs for the first time... Please wait 10-15 minutes.")
-        auto_scrape_background()
-
-# Check if we need to auto-update (background)
-if not st.session_state["jobs"].empty and should_auto_scrape():
-    auto_scrape_background()
-
-# Main Content - Display Jobs
-df = st.session_state["jobs"]
-
+# Check if jobs loaded
 if df.empty:
-    st.warning("⚠️ No jobs available at the moment. Please check back later.")
-    st.info("📧 Contact us at support@jobfinder.pk if this issue persists.")
+    st.error("❌ **Could not load jobs from database.**")
+    st.info("""
+    ### 📧 This might be because:
+    - The jobs database is being updated
+    - Connection issue with GitHub
+    - Cache file not found
+    
+    **Please contact:** support@jobfinder.pk
+    """)
     st.stop()
+
+# Add category column if missing
+if "category" not in df.columns:
+    def categorize_job(title):
+        title = str(title).lower()
+        if any(word in title for word in ["engineer", "developer", "programmer", "software", "it"]):
+            return "IT & Software"
+        elif any(word in title for word in ["manager", "executive", "director", "head", "ceo"]):
+            return "Management"
+        elif any(word in title for word in ["marketing", "sales", "business"]):
+            return "Sales & Marketing"
+        elif any(word in title for word in ["accountant", "finance", "audit", "banking"]):
+            return "Finance & Accounting"
+        elif any(word in title for word in ["teacher", "professor", "education", "lecturer"]):
+            return "Education"
+        elif any(word in title for word in ["doctor", "nurse", "medical", "health"]):
+            return "Healthcare"
+        elif any(word in title for word in ["civil", "mechanical", "electrical"]):
+            return "Engineering"
+        else:
+            return "Other"
+    
+    df["category"] = df["title"].apply(categorize_job)
 
 # Apply filters
 filtered_df = df.copy()
@@ -249,29 +219,7 @@ if location_filter != "All Locations":
         filtered_df["location"].str.contains(location_filter, case=False, na=False)
     ]
 
-# Category filter (add category column if not exists)
-if "category" not in filtered_df.columns:
-    def categorize_job(title):
-        title = title.lower()
-        if any(word in title for word in ["engineer", "developer", "programmer", "software", "it"]):
-            return "IT & Software"
-        elif any(word in title for word in ["manager", "executive", "director", "head"]):
-            return "Management"
-        elif any(word in title for word in ["marketing", "sales", "business"]):
-            return "Sales & Marketing"
-        elif any(word in title for word in ["accountant", "finance", "audit"]):
-            return "Finance & Accounting"
-        elif any(word in title for word in ["teacher", "professor", "education", "lecturer"]):
-            return "Education"
-        elif any(word in title for word in ["doctor", "nurse", "medical", "health"]):
-            return "Healthcare"
-        elif any(word in title for word in ["civil", "mechanical", "electrical"]):
-            return "Engineering"
-        else:
-            return "Other"
-    
-    filtered_df["category"] = filtered_df["title"].apply(categorize_job)
-
+# Category filter
 if category_filter != "All Categories":
     filtered_df = filtered_df[filtered_df["category"] == category_filter]
 
@@ -279,30 +227,13 @@ if category_filter != "All Categories":
 if source_filter != "All Sources":
     filtered_df = filtered_df[filtered_df["source"] == source_filter]
 
-# Date filter
-if date_filter != "All Time":
-    try:
-        filtered_df["posted_date"] = pd.to_datetime(filtered_df["posted_date"])
-        today = datetime.now()
-        
-        if date_filter == "Today":
-            filtered_df = filtered_df[filtered_df["posted_date"].dt.date == today.date()]
-        elif date_filter == "Last 7 Days":
-            week_ago = today - timedelta(days=7)
-            filtered_df = filtered_df[filtered_df["posted_date"] >= week_ago]
-        elif date_filter == "Last 30 Days":
-            month_ago = today - timedelta(days=30)
-            filtered_df = filtered_df[filtered_df["posted_date"] >= month_ago]
-    except:
-        pass
-
 # Statistics Dashboard
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown(f"""
     <div class="stats-box">
-        <h2 style="color: #667eea; margin:0;">{len(filtered_df)}</h2>
+        <h2 style="color: #667eea; margin:0;">{len(filtered_df):,}</h2>
         <p style="margin:0; font-size: 0.9rem;">Available Jobs</p>
     </div>
     """, unsafe_allow_html=True)
@@ -311,7 +242,7 @@ with col2:
     unique_companies = filtered_df["company"].nunique()
     st.markdown(f"""
     <div class="stats-box">
-        <h2 style="color: #764ba2; margin:0;">{unique_companies}</h2>
+        <h2 style="color: #764ba2; margin:0;">{unique_companies:,}</h2>
         <p style="margin:0; font-size: 0.9rem;">Companies Hiring</p>
     </div>
     """, unsafe_allow_html=True)
@@ -326,20 +257,16 @@ with col3:
     """, unsafe_allow_html=True)
 
 with col4:
-    if st.session_state["last_scrape"]:
-        last_update = datetime.fromisoformat(st.session_state["last_scrape"])
-        hours_ago = int((datetime.now() - last_update).total_seconds() / 3600)
-        update_text = f"{hours_ago}h ago" if hours_ago < 24 else f"{hours_ago // 24}d ago"
-        st.markdown(f"""
-        <div class="stats-box">
-            <h2 style="color: #4facfe; margin:0;">{update_text}</h2>
-            <p style="margin:0; font-size: 0.9rem;">Last Updated</p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stats-box">
+        <h2 style="color: #4facfe; margin:0;">24h</h2>
+        <p style="margin:0; font-size: 0.9rem;">Update Cycle</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
-# Display jobs or empty state
+# Display jobs
 if filtered_df.empty:
     st.info("🔍 **No jobs match your search criteria.**")
     st.markdown("""
@@ -347,17 +274,17 @@ if filtered_df.empty:
     - Remove some filters
     - Use different keywords
     - Select "All Locations" or "All Categories"
-    - Check back later for new listings
+    - Browse all jobs without filters
     """)
 else:
-    # Sort by date (newest first)
+    # Sort by date
     try:
         filtered_df["posted_date"] = pd.to_datetime(filtered_df["posted_date"])
         filtered_df = filtered_df.sort_values("posted_date", ascending=False)
     except:
         pass
     
-    st.subheader(f"📋 {len(filtered_df)} Jobs Found")
+    st.subheader(f"📋 {len(filtered_df):,} Jobs Found")
     
     # Pagination
     jobs_per_page = 10
@@ -366,12 +293,12 @@ else:
     if "page" not in st.session_state:
         st.session_state["page"] = 1
     
-    # Pagination controls at top
+    # Pagination controls
     if total_pages > 1:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             page = st.selectbox(
-                f"📄 Page",
+                "📄 Page",
                 range(1, total_pages + 1),
                 index=st.session_state["page"] - 1,
                 format_func=lambda x: f"Page {x} of {total_pages}"
@@ -380,20 +307,18 @@ else:
     else:
         page = 1
     
-    # Display current page jobs
+    # Display jobs
     start_idx = (page - 1) * jobs_per_page
     end_idx = start_idx + jobs_per_page
     page_df = filtered_df.iloc[start_idx:end_idx]
     
     for idx, job in page_df.iterrows():
-        # Format salary display
         salary_display = job.get('salary', 'Not specified')
         if salary_display == 'Not specified':
             salary_display = "💰 Salary: Negotiable"
         else:
             salary_display = f"💰 {salary_display}"
         
-        # Get category
         category = job.get('category', 'Other')
         
         st.markdown(f"""
@@ -403,9 +328,9 @@ else:
             <div class="job-detail">🏢 <b>{job['company']}</b></div>
             <div class="job-detail">📍 {job['location']}</div>
             <div class="job-detail">{salary_display}</div>
-            <div class="job-detail" style="margin-top: 0.8rem;">📝 {job['description'][:250]}...</div>
+            <div class="job-detail" style="margin-top: 0.8rem;">📝 {str(job['description'])[:250]}...</div>
             <div class="job-detail" style="margin-top: 0.5rem; color: #95a5a6;">
-                🌐 Source: {job['source']} | 📅 Posted: {job['posted_date']}
+                🌐 {job['source']} | 📅 {job['posted_date']}
             </div>
             <a href="{job['link']}" target="_blank">
                 <button class="apply-btn">Apply Now →</button>
@@ -413,12 +338,12 @@ else:
         </div>
         """, unsafe_allow_html=True)
     
-    # Pagination controls at bottom
+    # Bottom pagination
     if total_pages > 1:
         st.markdown("---")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.markdown(f"<p style='text-align: center;'>Page {page} of {total_pages}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center;'>Showing page {page} of {total_pages}</p>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
