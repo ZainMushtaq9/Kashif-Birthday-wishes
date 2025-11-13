@@ -4,6 +4,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import re
 import json
+import pandas as pd
+import time
 
 # --- Constants ---
 HEADERS = {
@@ -485,84 +487,126 @@ Be respectful: don't send too many requests too quickly. This tool is for educat
 Sites like LinkedIn, Indeed, and Rozee have strong anti-bot measures and may not work with this basic script.
 """, icon="⚖️")
 
-# --- Step 1: Select Website ---
-st.header("Step 1: Select a Website to Analyze")
+# --- Step 1: Full Site Analysis ---
+st.header("Step 1: Full Site Analysis")
 
-col1, col2 = st.columns(2)
-with col1:
-    category = st.selectbox("Choose a category", list(JOB_SITES.keys()))
-with col2:
-    selected_site_tuple = st.selectbox(
-        "Choose a site",
-        JOB_SITES[category],
-        format_func=lambda x: x[0] # Display the name (x[0])
-    )
+st.warning("""
+**Heads Up:** This will analyze **all 40+ sites** in the list.
+This process will take **several minutes** to complete. Please be patient.
+Running this many requests at once may also get your IP address rate-limited by some sites.
+""", icon="⏱️")
 
-base_url = get_base_url(selected_site_tuple[1])
-jobs_page_url = st.text_input("Enter the specific jobs page URL (or leave as is)", selected_site_tuple[1])
-
-# --- Step 2: Generate Analysis & Scraper ---
-st.header("Step 2: Generate Analysis & Scraper")
-
-if st.button(f"Analyze & Generate Code for {selected_site_tuple[0]}"):
-    st.subheader(f"Analysis for: {jobs_page_url}")
-    generated_code = None
+if st.button("Analyze All Websites"):
+    # Flatten the JOB_SITES dictionary into a list of tuples
+    sites_to_analyze = []
+    for category, sites in JOB_SITES.items():
+        for site_name, url in sites:
+            sites_to_analyze.append((category, site_name, url))
     
-    with st.spinner("Analyzing site... this may take a moment."):
-        # 1. Fetch robots.txt
+    total_sites = len(sites_to_analyze)
+    report_data = []
+    
+    progress_bar = st.progress(0.0, text=f"Starting analysis for {total_sites} sites...")
+    status_text = st.empty()
+
+    for i, (category, site_name, url) in enumerate(sites_to_analyze):
+        status_text.text(f"Analyzing ({i+1}/{total_sites}): {site_name}...")
+        
+        base_url = get_base_url(url)
         robots_url = urljoin(base_url, "/robots.txt")
+        
+        # 1. Fetch robots.txt
         robots_txt, robots_error = fetch_url_content(robots_url)
+        robots_status = "OK" if robots_txt else (str(robots_error) or "Fetch Failed")
         
         # 2. Fetch Page HTML
-        html_content, html_error = fetch_url_content(jobs_page_url)
+        html_content, html_error = fetch_url_content(url)
+        page_status = "OK" if html_content else (str(html_error) or "Fetch Failed")
         
-        # 3. Start Analysis Report
-        with st.expander("Analysis Report", expanded=True):
-            
-            # Report on robots.txt
-            st.markdown("#### `robots.txt` Analysis")
-            if robots_txt:
-                st.code(robots_txt, language="text")
-                st.markdown("`Disallow:` directives indicate paths web crawlers *should* avoid. Check for paths like `/jobs/`, `/search/`, or `/api/`.")
-                sitemaps = find_sitemap(robots_txt)
-                if sitemaps:
-                    st.markdown("**Sitemap(s) found:**")
-                    for s in sitemaps: st.code(s, language="text")
+        # 3. Determine Strategy
+        strategy_rec = "Unknown"
+        if html_content:
+            strategy, _ = analyze_html_strategy(html_content)
+            if strategy == 'json-ld':
+                strategy_rec = "JSON-LD (Easy)"
+            elif strategy == 'dynamic':
+                strategy_rec = "Dynamic (Hard)"
+            elif strategy == 'static':
+                strategy_rec = "Static HTML (Medium)"
             else:
-                st.error(f"Could not fetch robots.txt: {robots_error}")
+                strategy_rec = "Empty HTML (Check URL)"
+        else:
+            strategy_rec = f"Blocked ({page_status})"
             
-            st.markdown("---")
-            st.markdown("#### Page Analysis & Scraping Strategy")
+        report_data.append({
+            "Category": category,
+            "Site Name": site_name,
+            "URL": url,
+            "Page Status": page_status,
+            "Robots.txt Status": robots_status,
+            "Strategy": strategy_rec
+        })
+        
+        # Update progress bar
+        progress_bar.progress((i + 1) / total_sites, text=f"Analyzing ({i+1}/{total_sites}): {site_name}...")
+        
+        # Small delay to be polite to servers
+        time.sleep(0.1) 
 
-            # Report on HTML & Strategy
-            if html_content:
-                strategy, data = analyze_html_strategy(html_content)
-                
-                if strategy == 'json-ld':
-                    st.success("**Strategy: JSON-LD Data (Gold Standard)**")
-                    st.markdown("This site provides structured `JobPosting` data. This is the most reliable way to scrape. The script below is configured to parse this data directly.")
-                    generated_code = generate_json_ld_scraper(jobs_page_url)
-                
-                elif strategy == 'dynamic':
-                    st.warning("**Strategy: Dynamic JavaScript Site**")
-                    st.markdown("The page's HTML is very light and seems to load content using JavaScript. A simple `requests` script will **fail**.")
-                    st.markdown("**Recommendation:** Use a browser automation tool like `Selenium`. A boilerplate script for Selenium is provided below. You will need to install `selenium` and `webdriver-manager-chrome`.")
-                    generated_code = generate_selenium_scraper(jobs_page_url)
-                
-                else: # 'static'
-                    st.info("**Strategy: Static HTML Site**")
-                    st.markdown("This site appears to be standard HTML. A `BeautifulSoup` script is provided below. **You will almost certainly need to edit the script's selectors (tags and classes)** to match the site's structure.")
-                    st.markdown("Use your browser's 'Inspect Element' tool to find the correct selectors.")
-                    generated_code = generate_bs4_scraper(jobs_page_url, base_url)
-            
-            else:
-                st.error(f"**Strategy: Blocked**")
-                st.markdown(f"Failed to fetch page HTML: **{html_error}**")
-                st.warning("This site is likely blocking simple scripts (e.g., 403 Forbidden, 503 Service Unavailable). A basic scraper will not work. This requires advanced techniques like rotating proxies or Selenium with anti-bot detection measures, which are beyond the scope of this tool.")
+    status_text.success(f"Analysis complete! Processed {total_sites} sites.")
+    
+    # Create and display DataFrame
+    df = pd.DataFrame(report_data, columns=["Category", "Site Name", "Strategy", "Page Status", "Robots.txt Status", "URL"])
+    st.session_state['analysis_report'] = df
+    
+    st.subheader("Analysis Report")
+    st.dataframe(df, use_container_width=True)
 
-    # 4. Display the generated code
-    if generated_code:
-        st.subheader("Generated Boilerplate Script")
-        st.code(generated_code, language="python")
-    else:
-        st.error("Could not generate a script for this site due to the errors above.")
+# --- Step 2: Generate Boilerplate Script ---
+st.header("Step 2: Generate Boilerplate Script")
+
+if 'analysis_report' in st.session_state:
+    df = st.session_state['analysis_report']
+    
+    # Create a user-friendly list for the selectbox
+    site_options = df.apply(
+        lambda row: f"{row['Site Name']} ({row['Strategy']})", 
+        axis=1
+    ).tolist()
+    
+    st.info("Select a site from the report below to generate a starter script.")
+    selected_site_str = st.selectbox(
+        "Choose a site to generate code for:",
+        site_options,
+        index=None,
+        placeholder="Select a site..."
+    )
+
+    if selected_site_str:
+        # Find the corresponding row in the DataFrame
+        selected_row = df[df.apply(lambda row: f"{row['Site Name']} ({row['Strategy']})", axis=1) == selected_site_str].iloc[0]
+        
+        url = selected_row['URL']
+        base_url = get_base_url(url)
+        strategy = selected_row['Strategy']
+        
+        st.subheader(f"Generated Script for: {selected_row['Site Name']}")
+        
+        generated_code = None
+        if "JSON-LD" in strategy:
+            st.success("This script is configured to parse JSON-LD. It should be highly reliable.")
+            generated_code = generate_json_ld_scraper(url)
+        elif "Dynamic" in strategy:
+            st.warning("This is a Selenium script for dynamic sites. You must inspect the page and update the selectors (e.g., `div.job-listing`).")
+            generated_code = generate_selenium_scraper(url)
+        elif "Static" in strategy:
+            st.warning("This is a BeautifulSoup script. You **must** inspect the page and update the selectors (e.g., `container_class`, `title_class`).")
+            generated_code = generate_bs4_scraper(url, base_url)
+        elif "Blocked" in strategy:
+            st.error(f"Cannot generate script. The site blocked the analysis request ({selected_row['Page Status']}). A simple scraper will not work.")
+        
+        if generated_code:
+            st.code(generated_code, language="python")
+
+else:
+    st.info("Run the analysis in Step 1 to generate a report and enable code generation.")
