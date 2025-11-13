@@ -1,4 +1,6 @@
-streamlit 
+streamlit
 requests
 beautifulsoup4
 pandas
+selenium 
+fpdf2
