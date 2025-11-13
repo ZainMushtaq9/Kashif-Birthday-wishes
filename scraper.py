@@ -1,90 +1,65 @@
 import time
 import pandas as pd
+import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 
-# ---------- Setup Selenium ----------
+
 def init_driver():
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1920,1080")
+    service = Service("/usr/bin/chromedriver")
+    return webdriver.Chrome(service=service, options=chrome_options)
 
-    service = Service("/usr/bin/chromedriver")  # Streamlit Cloud path
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    return driver
 
-# ---------- Scraper for each site ----------
-def scrape_9cv9(driver):
-    driver.get("https://www.9cv9.com")
-    time.sleep(2)
+def get_job_links_from_github(raw_url: str):
+    """Fetch list of job site URLs from a raw GitHub txt file."""
+    response = requests.get(raw_url)
+    response.raise_for_status()
+    links = [line.strip() for line in response.text.splitlines() if line.strip()]
+    return links
+
+
+def generic_scraper(driver, url):
+    """Try to scrape jobs generically for static sites."""
     jobs = []
-    for job in driver.find_elements(By.CSS_SELECTOR, ".job-list-item"):
-        title = job.find_element(By.CSS_SELECTOR, ".job-title").text.strip()
-        company = job.find_element(By.CSS_SELECTOR, ".company-name").text.strip()
-        link = job.find_element(By.TAG_NAME, "a").get_attribute("href")
-        jobs.append({"title": title, "company": company, "link": link, "source": "9cv9"})
-    return jobs
-
-def scrape_brightspyre(driver):
-    driver.get("https://www.brightspyre.com")
-    time.sleep(2)
-    jobs = []
-    for job in driver.find_elements(By.CSS_SELECTOR, ".job_list tbody tr"):
-        title = job.find_element(By.CSS_SELECTOR, "td a").text.strip()
-        link = job.find_element(By.CSS_SELECTOR, "td a").get_attribute("href")
-        company = "N/A"
-        jobs.append({"title": title, "company": company, "link": link, "source": "Brightspyre"})
-    return jobs
-
-def scrape_careerokay(driver):
-    driver.get("https://www.careerokay.com")
-    time.sleep(2)
-    jobs = []
-    for job in driver.find_elements(By.CSS_SELECTOR, ".jobs-list-item"):
-        title = job.find_element(By.CSS_SELECTOR, ".title").text.strip()
-        company = job.find_element(By.CSS_SELECTOR, ".company").text.strip()
-        link = job.find_element(By.TAG_NAME, "a").get_attribute("href")
-        jobs.append({"title": title, "company": company, "link": link, "source": "Careerokay"})
-    return jobs
-
-def scrape_jobomas(driver):
-    driver.get("https://www.jobomas.com/en/jobs")
-    time.sleep(2)
-    jobs = []
-    for job in driver.find_elements(By.CSS_SELECTOR, ".job-list .job"):
-        title = job.find_element(By.CSS_SELECTOR, ".title").text.strip()
-        company = job.find_element(By.CSS_SELECTOR, ".company").text.strip()
-        link = job.find_element(By.TAG_NAME, "a").get_attribute("href")
-        jobs.append({"title": title, "company": company, "link": link, "source": "Jobomas"})
-    return jobs
-
-def scrape_jobsbirds(driver):
-    driver.get("https://www.jobsbirds.com")
-    time.sleep(2)
-    jobs = []
-    for job in driver.find_elements(By.CSS_SELECTOR, ".job-box"):
-        title = job.find_element(By.CSS_SELECTOR, "h3").text.strip()
-        company = job.find_element(By.CSS_SELECTOR, ".job-company").text.strip()
-        link = job.find_element(By.TAG_NAME, "a").get_attribute("href")
-        jobs.append({"title": title, "company": company, "link": link, "source": "JobsBirds"})
+    try:
+        driver.get(url)
+        time.sleep(3)
+        # Try common patterns
+        possible_selectors = [
+            ".job", ".job-list-item", ".job-box", "tr", "li", "article"
+        ]
+        for sel in possible_selectors:
+            elements = driver.find_elements(By.CSS_SELECTOR, sel)
+            for e in elements:
+                text = e.text.strip()
+                if len(text) > 25 and ("apply" not in text.lower()):
+                    jobs.append({
+                        "title": text.split("\n")[0][:80],
+                        "company": url.split("//")[-1].split("/")[0],
+                        "link": url,
+                        "source": url
+                    })
+            if len(jobs) > 10:
+                break
+    except Exception as e:
+        print(f"Error scraping {url}: {e}")
     return jobs
 
 
-# ---------- Master function ----------
-def scrape_all_sites():
+def scrape_from_github(raw_txt_url):
+    """Scrape all sites listed in job_links.txt hosted on GitHub."""
+    links = get_job_links_from_github(raw_txt_url)
     driver = init_driver()
     all_jobs = []
-
-    for fn in [scrape_9cv9, scrape_brightspyre, scrape_careerokay, scrape_jobomas, scrape_jobsbirds]:
-        try:
-            jobs = fn(driver)
-            all_jobs.extend(jobs)
-        except Exception as e:
-            print(f"Error scraping {fn.__name__}: {e}")
-
+    for site in links:
+        site_jobs = generic_scraper(driver, site)
+        all_jobs.extend(site_jobs)
     driver.quit()
     return pd.DataFrame(all_jobs)
