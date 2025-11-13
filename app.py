@@ -488,7 +488,7 @@ def create_pdf_report(df):
         pdf.ln()
     
     # Return PDF data as bytes
-    return pdf.output(dest='S').encode('latin-1')
+    return pdf.output(dest='S') # <- FIXED: Removed .encode('latin-1')
 
 
 def generate_bs4_scraper(url, base_url):
