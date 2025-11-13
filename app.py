@@ -1,24 +1,48 @@
 import streamlit as st
 import pandas as pd
-from scraper import scrape_all_sites
-from utils import save_to_csv, save_to_pdf
+from scraper import scrape_from_github
+from utils import search_jobs
 
-st.set_page_config(page_title="Job Scraper", layout="wide")
-st.title("💼 Job Scraper Dashboard")
+# 🔗 GitHub raw link to your job_links.txt
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/<YOUR_USERNAME>/<YOUR_REPO>/main/job_links.txt"
 
-if st.button("Scrape Jobs Now"):
-    with st.spinner("Scraping jobs from multiple sites..."):
-        df = scrape_all_sites()
-        if not df.empty:
-            st.success(f"Scraped {len(df)} jobs successfully!")
-            st.dataframe(df)
+st.set_page_config(page_title="JobFinder Portal", layout="wide")
 
-            csv_file = save_to_csv(df)
-            pdf_file = save_to_pdf(df)
+st.markdown("""
+    <h1 style='text-align:center; color:#2c3e50;'>💼 JobFinder Portal</h1>
+    <p style='text-align:center;'>Search jobs from multiple websites (auto-loaded from GitHub).</p>
+""", unsafe_allow_html=True)
 
-            st.download_button("📥 Download CSV", open(csv_file, "rb"), file_name="jobs.csv")
-            st.download_button("📄 Download PDF", open(pdf_file, "rb"), file_name="jobs.pdf")
-        else:
-            st.warning("No jobs found. Try again later.")
+# Sidebar
+st.sidebar.header("🔍 Search & Fetch")
+query = st.sidebar.text_input("Search Job Title or Company")
+fetch_now = st.sidebar.button("Fetch Latest Jobs")
+
+# Data Load / Scraping
+if fetch_now:
+    with st.spinner("Fetching job sites from GitHub and scraping listings..."):
+        df = scrape_from_github(GITHUB_RAW_URL)
+        st.session_state["jobs"] = df
+        st.success(f"✅ Scraped {len(df)} jobs successfully!")
 else:
-    st.info("Click the button above to fetch fresh job data.")
+    df = st.session_state.get("jobs", pd.DataFrame())
+
+# Display
+if df.empty:
+    st.info("No jobs loaded yet. Click 'Fetch Latest Jobs' to start scraping.")
+else:
+    filtered = search_jobs(df, query)
+    st.subheader(f"Showing {len(filtered)} Job Results")
+
+    for _, row in filtered.iterrows():
+        st.markdown(f"""
+        <div style='border:1px solid #ccc; border-radius:10px; padding:15px; margin-bottom:10px;'>
+            <h4 style='margin:0;'>{row['title']}</h4>
+            <p><b>Company:</b> {row['company']}</p>
+            <a href="{row['link']}" target="_blank">
+                <button style='background-color:#4CAF50; color:white; border:none; padding:8px 16px; border-radius:5px; cursor:pointer;'>
+                    Apply Now
+                </button>
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
