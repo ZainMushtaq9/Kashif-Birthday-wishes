@@ -135,7 +135,7 @@ HEADERS = {{
 }}
 
 def fetch_page(url):
-    """Fetches the content of a single page."""
+    # Fetches the content of a single page.
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
         response.raise_for_status()
@@ -145,7 +145,7 @@ def fetch_page(url):
         return None
 
 def parse_jobs(html):
-    """Parses the job listings from the HTML content."""
+    # Parses the job listings from the HTML content.
     soup = BeautifulSoup(html, 'html.parser')
     job_listings = []
     
@@ -183,7 +183,7 @@ def parse_jobs(html):
     return job_listings
 
 def main():
-    """Main function to run the scraper."""
+    # Main function to run the scraper.
     print(f"Scraping jobs from: {{TARGET_URL}}")
     html_content = fetch_page(TARGET_URL)
     
